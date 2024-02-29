@@ -89,7 +89,7 @@ class BMDSTrain(BMDS):
             *,
             max_dim: int = 10,
             lr: float = 1e-2,
-            n_iters_check: int = 1000,
+            n_iters_check: int = 100,
             threshold: float = 0.0,
             optim: Callable[[List[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
             device: torch.device = DEVICE,
