@@ -1,0 +1,317 @@
+\documentclass{article}
+
+\usepackage{amssymb, amsmath}
+\usepackage{mathtools}
+
+\newcommand{\Exp}{\mathrm{Exp}}
+\newcommand{\N}{\mathcal{N}}
+\newcommand{\LogN}{\mathrm{Lognormal}}
+\newcommand{\diag}{\mathrm{diag}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\Reg}{Reg}
+\DeclareMathOperator{\KL}{KL}
+
+\usepackage{geometry}
+
+\geometry{
+    margin=1.5cm
+}
+
+\begin{document}
+
+\section{General case}
+
+$W$ --- given mtrix of the squared distances between the objects.
+Define generative process:
+\begin{equation}
+    p(W, X) = p(X)p(W|X)
+\end{equation}
+Choose likelihood, with maximum when $d^2(X_i, X_j) = W_{ij}$
+\begin{equation}
+    p(W|X) = \prod_{i < j}\frac{1}{d^2(X_i, X_j)}\exp\left( -W_{ij} / d^2(x_I, x_J) \right)
+\end{equation}
+Set prior distribution on $X$:
+\begin{equation}
+    p(X) = p(X|\theta)
+\end{equation}
+We want to solve the following optimization problem:
+\begin{equation}
+    \log p(W|\theta) \to \max\limits_{\theta}
+\end{equation}
+Introduce evidence lower bound (ELBO):
+\begin{equation}
+    \log p(W|\theta) \ge
+    \E_{q(X)} \left( \log p(W, X|\theta) - \log q(X) \right) = \E_q \log p(W|X) - \KL(q(X)||p(X|\theta))
+\end{equation}
+When $q$ is the true posterior distribution:
+\begin{equation}
+    q(X) = p(X|W, \theta)
+\end{equation}
+the inequality becomes equality. Therefore, instead of the initial optimization problem, we can solve 
+\begin{equation}
+    \E_{q(X)} \left( \log p(W, X|\theta) - \log q(X) \right) \to \max_{q, \theta}\
+\end{equation}
+
+\subsection{E-step}
+
+\begin{equation}
+    \E_{q(X)} \left( \log p(W, X) - \log q(X) \right) \to \max\limits_q
+\end{equation}
+Theoretically, the point of the maximum is
+\begin{equation}
+    q(X) = p(X|W, \theta)
+\end{equation}
+In case $p(X|W, \theta)$ cannot be efficiently expressed, we use a parametrized approximation:
+\begin{equation}
+    q(X) \thickapprox q(X|\phi)
+\end{equation}
+And maximize the lower bound with respect to $\phi$.
+
+\subsection{M-step}
+
+\begin{equation}
+    \E_{q(X)} \left( \log p(W, X) - \log q(X) \right) \to \max\limits_\theta
+\end{equation}
+
+\subsection{Optimization procedure}
+
+We repeat E-step and M-step until convergence.
+
+\section{Euclidean case}
+
+$X \in \R^{N \times M}$,
+$d = d_E$ --- Euclidean distance,
+$\theta = \{A\},\ A = \diag(\alpha_1, \dots, \alpha_M)$.
+\begin{equation}
+    p(X|A) = \prod_i \N(X_i | 0, A^{-1})
+\end{equation}
+
+Approximate $q(X)$ with a Gaussian distribution:
+\begin{equation}
+    q(X) = \prod_{ij} \N(X_{ij} | \mu_{ij}, \sigma_{ij}^2)
+\end{equation}
+
+\begin{multline}
+    \label{eq:ELBO_Euclidean}
+    \E_{q(X)} \left( \log p(W, X) - \log q(X) \right) =
+    \E_{q(X)} \log p(W|X) +
+    \frac{N}{2}\sum\limits_j \log\alpha_j - \sum\limits_{i, j} \frac{1}{2} \alpha_j (\mu_{ij}^2 + \sigma_{ij}^2) +
+    \frac{1}{2}\sum_{ij} \log\sigma_{ij}^2 + const
+\end{multline}
+
+Maximizing with respect to $\alpha_j$, we get:
+\begin{equation}
+    \frac{1}{\alpha_j} = \frac{1}{N} \sum\limits_i \left(\mu_{ij}^2 + \sigma_{ij}^2\right)
+\end{equation}
+
+Substituting alphas in the eq.\ref{eq:ELBO_Euclidean} and dropping constants, we get the function that we want to maximize:
+\begin{equation}
+    f(X) =
+    \E_{q(X)} \log p(W|X) -
+    \frac{N}{2}\sum_j \log\left(\frac{1}{N}\sum\limits_i (\mu_{ij}^2 + \sigma_{ij}^2)\right) +
+    \frac{1}{2}\sum\limits_{ij} \log\sigma_{ij}^2
+\end{equation}
+
+To estimate the first term in $f(X)$, we use stochastic approximation:
+\begin{equation}
+    \E_{q(X)} \log p(W|X) =
+    \sum\limits_{i < j} \E_{q(X_i)q(X_j)} \log p(W|X) \thickapprox 
+    \sum\limits_{i < j} -\log d^2(x_i, x_j) - \frac{W_{ij}}{d^2(x_i, x_j)}
+\end{equation}
+where $x_i, x_j$ are random samples from $q(X_i), q(X_j)$.
+To be able to compute the gradients along $\mu$ and $\sigma$, we have to use the reparametrization trick:
+$X_{ij} = \mu_{ij} + \sigma_j\xi, \xi \sim \N(0, 1)$.
+We also want to use the optimization by batches of index pairs $B = (I, J)$,
+so we normalize $f$ by $\frac{N(N - 1)}{2}$ and approximate $\E_{q(X)} \log p(W|X)$ with the mean over a batch.
+We switch the sign of the function to minimize a function instead of maximizing.
+Finally, we get the following function to minimize:
+\begin{equation}
+    g(\mu, \sigma; B) =
+    \frac{1}{|B|}\sum\limits_{(i, j) \in B} \left( \log d^2(x_i, x_j) + \frac{W_{ij}}{d^2(x_i, x_j)} \right) +
+    \frac{1}{2(N - 1)} \sum\limits_j \log\left(1 + \frac{\frac{1}{N}\sum\limits_i \mu_{ij}^2}{\sigma_j^2}\right)
+\end{equation}
+It is worth noting that the second term is essentialy the regularization term.
+
+\subsection{Optimization pipeline}
+
+\begin{enumerate}
+    \item Initialize $\mu, \sigma$.
+    \item Repeat until convergence:
+    \begin{enumerate}
+        \item Choose a batch of index pairs $B = (I, J)$.
+        \item Compute $\nabla_{\mu, \sigma} g(\mu, \sigma; B)$.
+        \item Update $\mu, \sigma$.
+    \end{enumerate}
+\end{enumerate}
+
+\section{Euclidean + Periodic case}
+
+Now we divide $X$ into two parts: $X = (Y, \Phi, R)$, $Y \in \R^{N \times M},\ \Phi \in \R^{N \times K},\ R \in \R^K$.
+$Y$ encodes the Euclidean part, $\Phi$ and $R$ encode the periodic part.
+$d^2(X_i, X_j) = d_E^2(Y_i, Y_j) + d_P^2((\Phi_i, R), (\Phi_j, R))$, where $d_E$ is the Euclidean distance
+
+\begin{equation}
+    d_P^2((\Phi_i, R), (\Phi_j, R)) = \sum\limits_k 4R_k^2\sin^2\left(\frac{\Phi_{ik} - \Phi_{jk}}{2}\right)
+\end{equation}
+
+Where each individual additional term is basically the distance between two points on a circle with radius $R_k$.
+
+\begin{equation}
+    p(X|A, B) = p(Y|A)p(\Phi|B)p(R) =
+    \prod_i \left( \N(Y_i | 0, A^{-1}) \right)
+    \prod_i \left( \N(\Phi_i | 0, B^{-1}) \right)
+    \prod_k \left( \Gamma(R_i | \epsilon, b_k) \right)
+\end{equation}
+
+Where $B = \diag(\beta_1, \dots, \beta_K)$.
+The approximation for $q(X)$ gets additional multipliers:
+
+\begin{equation}
+    q(X) =
+    \prod_i \left( \N(Y_i | {\mu_Y}_i, \Sigma_Y) \right)
+    \prod_i \left( \mathcal{N}(\Phi_i | {\mu_\Phi}_i, \Sigma_\Phi) \right)
+    \prod_k \left( \LogN(R_k | {\mu_R}_k, {\sigma_R}_k^2) \right)
+\end{equation}
+
+Where $\epsilon$ is a small constant, $S = \diag(s_1^2, \dots, s_K^2)$.
+Since $p(X)$ and $q(X)$ factorize into independent distributions over $Y, \Phi, R$, $\KL(q(X)||p(X))$ also factorizes:
+\begin{equation}
+    \KL(q(X)||p(X)) = \KL(q(Y)||p(Y)) + \KL(q(\Phi)||p(\Phi)) + \KL(q(R)||p(R))
+\end{equation}
+$\KL(q(Y)|p(Y))$ will give the same regularization term as in the Euclidean case.
+$\KL(q(\Phi), p(\Phi))$ will give an identical regularization term for $m$ and $s$.
+\begin{multline}
+    \KL(q(R)||p(R)) =
+    \E_q \sum\limits_k \left(
+        -\epsilon\log b_k - (\epsilon - 1)\log R_k + \Gamma(\epsilon) + b_k R_k + \log\LogN(R_k | {\mu_R}_k, {\sigma_R}_k^2)
+    \right) =\\
+    \sum\limits_k \left(
+        -\epsilon\log b_k - (\epsilon - 1)\mu_k + \Gamma(\epsilon) + b_k \exp\left(\mu_k + \frac{\sigma_k^2}{2}\right) - \log\sigma_k - \mu
+    \right) + const
+\end{multline}
+
+Optimization by $b_k$ leads to $b_k = \epsilon\exp\left(-\mu_k - \frac{\sigma_k^2}{2}\right)$
+The ELBO now will be the same as for the Euclidean case, but with the following additional terms corresponding to the periodic part:
+
+\begin{multline}
+    \E_q (\log p(\Phi, R) - \log q(\Phi, R)) =
+    \frac{N}{2}\log\det B - \E_q \sum\limits_i \frac{1}{2} \Phi_i^T B \Phi_i +
+    \frac{N}{2}\log\det S + \E_q \sum\limits_i \frac{1}{2} {(\Phi_i - m_i)}^T S (\Phi_i - m_i) -\\
+    \sum\limits_k \E_q R_k - \E_q\sum\limits_k \left( \epsilon\log\frac{\epsilon}{\rho_k} + (\epsilon - 1) \log R_k - \frac{\epsilon R_k}{\rho_k} \right) + const =
+    \frac{N}{2}\sum\limits_j \log\beta_j - \sum\limits_{i, j} \frac{1}{2} \beta_j (m_{ij}^2 + s_j^2) +
+    \frac{N}{2}\sum_j \log s_j^2 + const
+\end{multline}
+
+On the M-step we optimize this expression with respect to $r$, which leads us to 
+
+% Now we divide $X$ into two parts: $X = (Y, Z, R)$, $Y \in \R^{N \times M},\ Z \in \R^{N \times K \times 2},\ R \in \R^K$.
+% $Y$ will encodes the Euclidean part, $Z$ encodes the periodic part.
+% $d^2(X_i, X_j) = d_E(Y_i, Y_j) + d_F(Z_i, Z_j)$, where $d_E$ is the Euclidean distance, $d_F$ is the distance generated by the Frobenius norm.
+% In some formulas we will use polar coordinates $(\rho_{ik}, \varphi_{ik})$ for $Z_{ik}$ to make the formulas look simpler.
+
+% \begin{equation}
+%     p(X|A, m, \beta) = p(Y|A)p(Z|R, s)p(R|r) =
+%     \prod_i \N(Y_i | 0, A^{-1})
+%     \prod_{ik} \frac{\LogN(\rho_{ik} | \log R_k, s_k^2)}{2\pi\rho_{ik}}
+%     \prod_k \frac{1}{r_k}\exp\left(-\frac{R_k}{r_k}\right)
+% \end{equation}
+
+% The approximation for $q(X)$ gets additional multipliers:
+
+% \begin{equation}
+%     q(X) = \prod_i \left(
+%         \N(Y_i | \mu_i, \Sigma)
+%         \prod_k \left(
+%             \frac{\LogN(\rho_{ik} | a_{ik}, b_{k}^2)}{\rho_{ik}}
+%             \mathcal{N}(\varphi_{ik} | \phi_{ik}, \Delta \phi_{ik}^2)
+%         \right)
+%     \right)
+% \end{equation}
+
+% The ELBO now will be the same as for the Euclidean case, but with additional terms corresponding to the periodic part:
+
+% \begin{multline}
+%     \label{eq:ELBO_EP}
+%     \E_q \sum\limits_{ik} \left(
+%         -\log s_k - \frac{{(\log\rho_{ik} - m_k)}^2}{2s_k^2} +
+%         \log b_{k} + \frac{{(\log\rho_{ik} - a_{ik})}^2}{2b_{k}^2} +
+%         \log\Delta\phi_{ik} + \frac{(\varphi_{ik} - \phi_{ik})}{2\Delta\phi_{ik}^2}
+%     \right) + const =\\
+%     \sum\limits_{ik} \left(
+%         \log\frac{b_{k}}{s_k} - \frac{b_{k}^2 + {(m_k - a_{ik})}^2}{2s_k^2} +
+%         \log\Delta\phi_{ik}
+%     \right) + const
+% \end{multline}
+
+% On the M-step we optimize this expression with respect to $m, s$:
+% \begin{equation}
+%     m_k = \frac{1}{N}\sum\limits_{i} a_{ik},\ s_k^2 = \frac{1}{N}\sum\limits_{i} (b_{k}^2 + {(m_k - a_{ik})}^2)
+% \end{equation}
+% Substituting this into eq.\ref{eq:ELBO_EP}, we get an additional term to the regularizer, so that the full regularizer is:
+
+% \begin{equation}
+%     \Reg =
+%     \frac{1}{2(N - 1)} \sum\limits_j \log\left(1 + \frac{\frac{1}{N}\sum\limits_i \mu_{ij}^2}{\sigma_j^2}\right) +
+%     \frac{1}{2(N - 1)} \sum\limits_k \log\left(1 + \frac{}{}\right)
+% \end{equation}
+
+\section*{Circle distribution}
+
+\begin{equation}
+    p(\Phi | \mu, \kappa) = \prod\frac{\exp(\kappa\cos(\phi_i - \mu))}{2\pi I_0(\kappa)}
+\end{equation}
+
+\begin{equation}
+    \log p(\Phi | \mu, \kappa) = \sum\limits_i \left( \kappa\cos(\phi_i - \mu) - \log(2\pi I_0(\kappa)) \right)
+\end{equation}
+
+\begin{equation}
+    0 = \sum\limits_i \sin(\phi_i - \mu) =
+    \sum\limits_i \left( \sin\phi_i\cos\mu - \cos\phi_i\sin\mu \right) =
+    \cos\mu\sum\limits_i \sin\phi_i - \sin\mu\sum\limits_i \cos\phi_i
+\end{equation}
+
+\begin{equation}
+    \mu = \arctan\left( \frac{\sum\limits_i \sin\phi_i}{\sum\limits_i \cos\phi_i} \right) + k\pi
+\end{equation}
+
+\begin{equation}
+    0 = \sum\limits_i \left( \cos(\phi_i - \mu) - \frac{I_1(\kappa)}{I_0(\kappa)} \right)
+\end{equation}
+
+% \begin{equation}
+%     \frac{\sqrt{\lambda}}{\sqrt{2\pi}} \exp(-\frac{{\lambda(\theta)}^2}{2})
+% \end{equation}
+
+% $$\frac{1}{2}\log \lambda - \frac{1}{2}\log2\pi - \frac{\lambda(\theta)^2}{2}$$
+% $$p(X|\theta) = \frac{1}{\sqrt{2\pi}} \exp\left( \frac{(x_i - \theta)^2}{2} \right)$$
+
+\newpage
+
+\section*{Eval phase}
+
+During the training phase, we estimated the posterior distributions for the training objects: $q(X_i)$.
+We also optimized the ELBO with respect to the parameters $\theta$ of the prir distribution on $X$.
+Now we get a new object and want to compute the posterior distribution for it.
+Let's denote the distances form the new object to all previous objects as $w$.
+Let's also denote its latent representation as $y$. Then
+
+\begin{equation}
+    p(w|y, X) = \prod_i \frac{1}{d^2(y, x_i)}\exp\left( -w_i / d^2(y, x_i) \right)
+\end{equation}
+We are interested in the posterior distribution for $y$.
+We can use the following formula:
+\begin{equation}
+    p(y|w) = \E_{q(X)} \log p(y|w, X) \ge \E_{q(X)} \E_{q(y)} \left( \log p(w, y | X) - \log q(y) \right) =
+    \E_{q(X)} \E_{q(y)} \log p(w|y, X) - \KL(q(y)||p(y))
+\end{equation}
+
+\subsection*{Euclidean case}
+
+\begin{equation}
+    p(y|w) \ge \E_{q(X)} \E_{q(y)} \log p(w|y, X) - \sum\limits_j \frac{1}{2}\log(\alpha_j s_j^2) - \sum\limits_j \frac{1}{2}\alpha_j (m_j^2 + s_j^2)
+\end{equation}
+
+\end{document}
