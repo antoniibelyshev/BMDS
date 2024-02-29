@@ -231,9 +231,9 @@ class SklearnBMDS:
             device: torch.device = DEVICE,
     ):
         self.batch_size_train = batch_size_train
-        self.batch_size_eval = dict() if batch_size_eval is None else batch_size_train
-        self.bmds_train_kwargs = dict() if bmds_train_kwargs is None else bmds_train_kwargs
-        self.bmds_eval_kwargs = bmds_eval_kwargs
+        self.batch_size_eval = batch_size_eval
+        self.bmds_train_kwargs: Dict[str, Any] = bmds_train_kwargs or dict()
+        self.bmds_eval_kwargs: Dict[str, Any] = bmds_eval_kwargs or dict()
         self.device = device
 
     def fit(

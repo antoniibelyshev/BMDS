@@ -12,9 +12,9 @@ class MLPClassifier(LightningModule):
     def __init__(
             self,
             input_dim: int,
+            n_classes: int,
             hidden_dims: Union[Tuple[int, int], List[int]] = (16, 2),
             act_fn=torch.nn.ReLU,
-            output_dim: int = 10,
             optim_class=torch.optim.SGD,
             lr: float = 1e-2,
             loss_fn=torch.nn.CrossEntropyLoss,
@@ -25,7 +25,7 @@ class MLPClassifier(LightningModule):
         if isinstance(hidden_dims, Tuple):
             hidden_dims = [hidden_dims[0]] * hidden_dims[1]
         self.hidden_dims = hidden_dims
-        self.output_dim = output_dim
+        self.n_classes = n_classes
 
         self.layers = torch.nn.ModuleList()
         prev_dim = input_dim
@@ -33,7 +33,7 @@ class MLPClassifier(LightningModule):
             self.layers.append(torch.nn.Linear(prev_dim, dim))
             self.layers.append(act_fn())
             prev_dim = dim
-        self.layers.append(torch.nn.Linear(prev_dim, output_dim))
+        self.layers.append(torch.nn.Linear(prev_dim, n_classes - (n_classes == 2)))
 
         self.optim_class = optim_class
 
@@ -44,6 +44,8 @@ class MLPClassifier(LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
             x = layer(x)
+        if self.n_classes == 2:
+            x = torch.cat((torch.zeros_like(x), x), dim=1)
         return x
 
     def loss(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
@@ -69,12 +71,14 @@ class SklearnMLPClassifier:
 
     def __init__(
             self,
+            n_classes: int,
             *,
-            batch_size: Union[int, float],
+            batch_size: Union[int, float] = 1e-2,
             device: torch.device = DEVICE,
             n_avg: int = 1000,
             **clf_kwargs: Any,
     ):
+        self.n_classes = n_classes
         self.batch_size = batch_size
         self.device = device
         self.n_avg = n_avg
@@ -93,7 +97,7 @@ class SklearnMLPClassifier:
             stds=() if std_train is None else (std_train,),
             batch_size=self.batch_size,
         )
-        self.clf = MLPClassifier(x_train.shape[1], **self.clf_kwargs).to(self.device)
+        self.clf = MLPClassifier(x_train.shape[1], self.n_classes, **self.clf_kwargs).to(self.device)
         trainer = Trainer(**{**self.TRAINER_DEFAULTS, **trainer_kwargs})
         trainer.fit(self.clf, datamodule=datamodule)
 
