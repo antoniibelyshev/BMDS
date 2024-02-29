@@ -76,9 +76,9 @@ def train_eval(
     else:
         idx_train, idx_eval = idx_train_eval
 
-    dist_mat_train = dist_mat[idx_train, idx_train]
+    dist_mat_train = dist_mat[idx_train[:, None], idx_train]
     y_train = y[idx_train]
-    dist_mat_eval = dist_mat[idx_train, idx_eval]
+    dist_mat_eval = dist_mat[idx_train[:, None], idx_eval]
     y_eval = y[idx_eval]
 
     x_train, std_train, x_eval, std_eval = train_eval_bmds(
