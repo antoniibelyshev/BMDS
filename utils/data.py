@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Sequence
+from typing import Union, Tuple
 import pytorch_lightning as pl
 import torch
 from torch.utils import data
@@ -7,12 +7,12 @@ from itertools import combinations, product
 
 class Dataset(data.Dataset):
     tensors: Tuple[torch.Tensor, ...]
-    stds: Sequence[torch.Tensor, ...]
+    stds: Tuple[torch.Tensor, ...]
 
     def __init__(
             self,
             *tensors: torch.Tensor,
-            stds: Sequence[torch.Tensor, ...] = (),
+            stds: Tuple[torch.Tensor, ...] = (),
     ):
         super().__init__()
 
@@ -40,7 +40,7 @@ class DefaultDataModule(pl.LightningDataModule):
             self,
             *tensors: torch.Tensor,
             batch_size: Union[int, float] = 1e-2,
-            stds: Sequence[torch.Tensor, ...] = (),
+            stds: Tuple[torch.Tensor, ...] = (),
     ):
         super().__init__()
 
