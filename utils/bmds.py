@@ -4,7 +4,7 @@ from typing import Tuple, Any, Union, Callable, Dict, TypeVar, Sequence, List
 
 import torch
 from pytorch_lightning import LightningModule, Trainer
-
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 
 from .data import DefaultDataModule, DistMatrixDataModule
 
@@ -141,14 +141,14 @@ class BMDSTrain(BMDS):
 
     def on_train_batch_end(
             self,
-            loss: float,
+            outputs: STEP_OUTPUT,
             batch: Any,
             batch_idx: int
     ) -> None:
         with torch.no_grad():
             self.dim -= 1
             loss_ = self.loss(batch)
-            loss_diff = loss_ - loss
+            loss_diff = loss_ - outputs["loss"]
             reg_diff = -self.regularization(self.dim)
             self.loss_diffs.append(loss_diff + reg_diff)
             if not self.keep_change():
@@ -156,7 +156,7 @@ class BMDSTrain(BMDS):
             else:
                 self.loss_diffs = []
 
-        del batch, loss, loss_, loss_diff, reg_diff
+        del batch, outputs, loss_, loss_diff, reg_diff
 
     def keep_change(self) -> bool:
         if len(self.loss_diffs) < self.n_iters_check:
