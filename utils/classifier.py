@@ -12,11 +12,11 @@ class MLPClassifier(LightningModule):
     def __init__(
             self,
             input_dim: int,
-            n_classes: int,
+            output_dim: int,
             hidden_dims: Union[Tuple[int, int], List[int]] = (16, 2),
             act_fn=torch.nn.ReLU,
             optim_class=torch.optim.SGD,
-            lr: float = 1e-2,
+            lr: float = 1e-1,
             loss_fn=torch.nn.CrossEntropyLoss,
     ):
         super().__init__()
@@ -25,7 +25,7 @@ class MLPClassifier(LightningModule):
         if isinstance(hidden_dims, Tuple):
             hidden_dims = [hidden_dims[0]] * hidden_dims[1]
         self.hidden_dims = hidden_dims
-        self.n_classes = n_classes
+        self.output_dim = output_dim
 
         self.layers = torch.nn.ModuleList()
         prev_dim = input_dim
@@ -33,7 +33,7 @@ class MLPClassifier(LightningModule):
             self.layers.append(torch.nn.Linear(prev_dim, dim))
             self.layers.append(act_fn())
             prev_dim = dim
-        self.layers.append(torch.nn.Linear(prev_dim, n_classes - (n_classes == 2)))
+        self.layers.append(torch.nn.Linear(prev_dim, output_dim))
 
         self.optim_class = optim_class
 
@@ -44,7 +44,7 @@ class MLPClassifier(LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
             x = layer(x)
-        if self.n_classes == 2:
+        if self.output_dim == 1:
             x = torch.cat((torch.zeros_like(x), x), dim=1)
         return x
 
@@ -78,7 +78,7 @@ class SklearnMLPClassifier:
             n_avg: int = 1000,
             **clf_kwargs: Any,
     ):
-        self.n_classes = n_classes
+        self.output_dim = n_classes if n_classes > 2 else 1
         self.batch_size = batch_size
         self.device = device
         self.n_avg = n_avg
@@ -97,7 +97,7 @@ class SklearnMLPClassifier:
             stds=() if std_train is None else (std_train,),
             batch_size=self.batch_size,
         )
-        self.clf = MLPClassifier(x_train.shape[1], self.n_classes, **self.clf_kwargs).to(self.device)
+        self.clf = MLPClassifier(x_train.shape[1], self.output_dim, **self.clf_kwargs).to(self.device)
         trainer = Trainer(**{**self.TRAINER_DEFAULTS, **trainer_kwargs})
         trainer.fit(self.clf, datamodule=datamodule)
 
@@ -119,4 +119,4 @@ class SklearnMLPClassifier:
         if std_eval is None:
             return self.clf(x_eval).detach().cpu().argmax(dim=1)
         else:
-            return self.clf(x_eval + torch.randn(self.n_avg, *x_eval.shape)).detach().cpu().mean(dim=0).argmax(dim=1)
+            return self.clf(x_eval + torch.randn(self.n_avg, *x_eval.shape) * std_eval).detach().cpu().mean(dim=0).argmax(dim=1)

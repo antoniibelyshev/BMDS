@@ -88,7 +88,7 @@ class BMDSTrain(BMDS):
             n: int,
             *,
             max_dim: int = 10,
-            lr: float = 1e-2,
+            lr: float = 1e-3,
             n_iters_check: int = 100,
             threshold: float = 0.0,
             optim: Callable[[List[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
@@ -180,7 +180,7 @@ class BMDSEval(BMDS):
             *,
             device: torch.device = DEVICE,
             optim: Callable[[List[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
-            lr: float = 1e-2,
+            lr: float = 1e-3,
     ):
         super().__init__(n, x_train.shape[1], lr=lr, optim=optim, device=device)
 
@@ -188,7 +188,7 @@ class BMDSEval(BMDS):
         self.std_train = std_train.to(device)
         self.m = len(x_train)
 
-        self.alpha = (x_train ** 2).mean(dim=0) + (std_train ** 2).mean(axis=0)
+        self.alpha = ((x_train ** 2).mean(dim=0) + (std_train ** 2).mean(axis=0)).to(device)
 
     def sample_dist_sqr(
             self,
@@ -218,14 +218,14 @@ class SklearnBMDS:
 
     TRAINER_DEFAULTS: Dict[str, Any] = {
         "gpus": 1 if torch.cuda.is_available() else 0,
-        "max_epochs": 100,
+        "max_epochs": 1000,
     }
 
     def __init__(
             self,
             *,
-            batch_size_train: int = 1e-2,
-            batch_size_eval: int = 1e-1,
+            batch_size_train: int = 1000,
+            batch_size_eval: int = 1e-2,
             bmds_train_kwargs: Union[Dict[str, Any], None] = None,
             bmds_eval_kwargs: Union[Dict[str, Any], None] = None,
             device: torch.device = DEVICE,
@@ -272,7 +272,7 @@ class SklearnBMDS:
         datamodule = DefaultDataModule(
             torch.arange(len(dist_mat_eval)),
             dist_mat_eval,
-            batch_size=self.batch_size_train
+            batch_size=self.batch_size_eval,
         )
         bmds_eval = BMDSEval(
             dist_mat_eval.shape[1],
