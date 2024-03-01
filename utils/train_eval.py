@@ -51,10 +51,12 @@ def train_eval_clf(
     run = wandb.init(project=name + " clf")
     logger = pytorch_lightning.loggers.WandbLogger()
     pred_train = clf.fit_predict(x_train, y_train, std_train, logger=logger, **(clf_train_kwargs or dict()))
-    pred_eval = clf.predict(x_eval, std_eval)
+    pred_eval_rand = clf.predict(x_eval, std_eval)
+    pred_eval = clf.predict(x_eval)
     logger.log_hyperparams({
         "train_acc": accuracy_score(pred_train, y_train),
-        "eval_acc": accuracy_score(pred_eval, y_eval),
+        "eval_acc_rand": accuracy_score(pred_eval_rand, y_eval),
+        "eval_acc": accuracy_score(pred_eval, y_eval)
     })
     run.finish()
 
