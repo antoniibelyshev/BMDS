@@ -56,7 +56,7 @@ def train_eval_clf(
     logger.log_hyperparams({
         "train_acc": accuracy_score(pred_train, y_train),
         "eval_acc_rand": accuracy_score(pred_eval_rand, y_eval),
-        "eval_acc": accuracy_score(pred_eval, y_eval)
+        "eval_acc": accuracy_score(pred_eval, y_eval),
     })
     run.finish()
 

@@ -73,8 +73,9 @@ class BMDS(LightningModule):
         reg = self.regularization()
         self.log("reg", reg)
         total_loss = loss + reg
+        self.log("total_loss", total_loss)
         self.log("dim", float(self.dim), prog_bar=True)
-        self.on_train_step_end(batch, loss.detach())
+        self.on_train_step_end(loss.detach(), batch)
         del batch, loss, reg
         return total_loss
 
@@ -97,7 +98,7 @@ class BMDSTrain(BMDS):
             max_dim: int = 10,
             lr: float = 1e-3,
             n_iters_check: int = 100,
-            threshold: float = 0.0,
+            threshold: float = 1.64,
             optim: Callable[[List[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
             device: torch.device = DEVICE,
     ):
@@ -171,7 +172,7 @@ class BMDSTrain(BMDS):
             diff_samples = torch.tensor(self.loss_diffs[-self.n_iters_check:])
             mu = diff_samples.mean()
             std = diff_samples.std(dim=None)
-            res = mu / std < -self.threshold
+            res = mu / std < self.threshold
             self.log("frac", mu / std, prog_bar=True)
             del diff_samples, mu, std
             return res
@@ -224,7 +225,7 @@ class SklearnBMDS:
 
     TRAINER_DEFAULTS: Dict[str, Any] = {
         "gpus": 1 if torch.cuda.is_available() else 0,
-        "max_epochs": 1000,
+        "max_epochs": 500,
     }
 
     def __init__(
