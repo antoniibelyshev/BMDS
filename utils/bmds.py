@@ -75,7 +75,7 @@ class BMDS(LightningModule):
         total_loss = loss + reg
         self.log("total_loss", total_loss)
         self.log("dim", float(self.dim), prog_bar=True)
-        self.on_train_step_end(loss.detach(), batch)
+        self.on_train_step_end(batch, loss.detach())
         del batch, loss, reg
         return total_loss
 
