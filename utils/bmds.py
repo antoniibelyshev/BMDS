@@ -54,7 +54,7 @@ class BMDS(LightningModule):
         idx, observed_dist_sqr = batch
         sampled_dist_sqr = self.sample_dist_sqr(idx)
         ratio = observed_dist_sqr / sampled_dist_sqr
-        loss = (ratio - torch.log(ratio) - 1).mean()
+        loss = (ratio - torch.log(ratio) - 1).mean(dim=0).sum()
         del batch, idx, observed_dist_sqr, sampled_dist_sqr, ratio
         return loss
 
