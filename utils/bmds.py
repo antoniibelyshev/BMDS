@@ -230,7 +230,7 @@ class SklearnBMDS:
     def __init__(
             self,
             *,
-            batch_size_train: int = 1000,
+            batch_size_train: int = 4000,
             batch_size_eval: int = 1e-2,
             bmds_train_kwargs: Union[Dict[str, Any], None] = None,
             bmds_eval_kwargs: Union[Dict[str, Any], None] = None,
