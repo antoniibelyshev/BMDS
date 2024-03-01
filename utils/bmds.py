@@ -75,7 +75,7 @@ class BMDS(LightningModule):
         total_loss = loss + reg
         self.log("total_loss", total_loss)
         self.log("dim", float(self.dim), prog_bar=True)
-        self.on_train_step_end(batch, loss.detach())
+        self.on_train_step_end(batch, loss.detach(), reg.detach())
         del batch, loss, reg
         return total_loss
 
@@ -83,6 +83,7 @@ class BMDS(LightningModule):
             self,
             batch: Tuple[torch.Tensor, torch.Tensor],
             loss: float,
+            reg: float,
     ) -> None:
         pass
 
@@ -98,7 +99,7 @@ class BMDSTrain(BMDS):
             max_dim: int = 10,
             lr: float = 1e-3,
             n_iters_check: int = 100,
-            threshold: float = 1.64,
+            threshold: float = 0.1,
             optim: Callable[[List[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
             device: torch.device = DEVICE,
     ):
@@ -111,7 +112,8 @@ class BMDSTrain(BMDS):
         self.scale = self.compute_scale()
 
         self.dim = max_dim
-        self.loss_diffs: List[float] = []
+        self.total_loss_diffs: List[float] = []
+        self.total_losses: List[float] = []
 
     def sample_dist_sqr(
             self,
@@ -149,33 +151,36 @@ class BMDSTrain(BMDS):
 
     def on_train_step_end(
             self,
-            loss: float,
             batch: Tuple[torch.Tensor, torch.Tensor],
+            loss: float,
+            reg: float,
     ) -> None:
         with torch.no_grad():
             self.dim -= 1
             loss_ = self.loss(batch)
-            loss_diff = loss_ - loss
-            reg_diff = -self.regularization(self.dim)
-            self.loss_diffs.append(loss_diff + reg_diff)
+            total_loss_diff = loss_ - loss - self.regularization(self.dim)
+            self.total_losses.append(loss + reg)
+            self.total_loss_diffs.append(total_loss_diff)
             if self.keep_change():
-                self.loss_diffs = []
+                self.total_loss_diffs = []
             else:
                 self.dim += 1
 
-        del batch, loss, loss_, loss_diff, reg_diff
+        del batch, loss, reg, loss_, total_loss_diff
 
     def keep_change(self) -> bool:
-        if len(self.loss_diffs) < self.n_iters_check:
+        if len(self.total_losses) < self.n_iters_check:
             return False
         else:
-            diff_samples = torch.tensor(self.loss_diffs[-self.n_iters_check:])
-            mu = diff_samples.mean()
-            std = diff_samples.std(dim=None)
-            res = mu / std < self.threshold
-            self.log("frac", mu / std, prog_bar=True)
-            del diff_samples, mu, std
-            return res
+            diff_samples = torch.tensor(self.total_loss_diffs[-self.n_iters_check:])
+            # mu = diff_samples.mean()
+            # std = diff_samples.std(dim=None)
+            # res = mu / std < self.threshold
+            loss_samples = torch.tensor(self.total_losses[-self.n_iters_check:])
+            frac = diff_samples.mean() / loss_samples.mean()
+            self.log("frac", frac, prog_bar=True)
+            del diff_samples, diff_samples, loss_samples
+            return frac < self.threshold
 
 
 class BMDSEval(BMDS):
