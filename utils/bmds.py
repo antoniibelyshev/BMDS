@@ -4,7 +4,6 @@ from typing import Tuple, Any, Union, Callable, Dict, TypeVar, Sequence, List
 
 import torch
 from pytorch_lightning import LightningModule, Trainer
-from pytorch_lightning.utilities.types import STEP_OUTPUT
 
 from .data import DefaultDataModule, DistMatrixDataModule
 
@@ -75,8 +74,16 @@ class BMDS(LightningModule):
         self.log("reg", reg)
         total_loss = loss + reg
         self.log("dim", float(self.dim), prog_bar=True)
+        self.on_train_step_end(batch, loss.detach())
         del batch, loss, reg
         return total_loss
+
+    def on_train_step_end(
+            self,
+            batch: Tuple[torch.Tensor, torch.Tensor],
+            loss: float,
+    ) -> None:
+        pass
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return self.optim([self.x, self.std], self.lr)
@@ -139,24 +146,23 @@ class BMDSTrain(BMDS):
             self.x.copy_(orthogonal_x)
             del u, s, v, orthogonal_x
 
-    def on_train_batch_end(
+    def on_train_step_end(
             self,
-            outputs: STEP_OUTPUT,
-            batch: Any,
-            batch_idx: int
+            loss: float,
+            batch: Tuple[torch.Tensor, torch.Tensor],
     ) -> None:
         with torch.no_grad():
             self.dim -= 1
             loss_ = self.loss(batch)
-            loss_diff = loss_ - outputs["loss"]
+            loss_diff = loss_ - loss
             reg_diff = -self.regularization(self.dim)
             self.loss_diffs.append(loss_diff + reg_diff)
-            if not self.keep_change():
-                self.dim += 1
-            else:
+            if self.keep_change():
                 self.loss_diffs = []
+            else:
+                self.dim += 1
 
-        del batch, outputs, loss_, loss_diff, reg_diff
+        del batch, loss, loss_, loss_diff, reg_diff
 
     def keep_change(self) -> bool:
         if len(self.loss_diffs) < self.n_iters_check:
