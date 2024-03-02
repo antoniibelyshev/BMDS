@@ -98,7 +98,7 @@ class BMDSTrain(BMDS):
             *,
             max_dim: int = 10,
             lr: float = 1e-3,
-            n_iters_check: int = 100,
+            n_iters_check: int = 20,
             threshold: float = 0.1,
             optim: Callable[[List[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
             device: torch.device = DEVICE,
@@ -163,6 +163,7 @@ class BMDSTrain(BMDS):
             self.total_loss_diffs.append(total_loss_diff)
             if self.keep_change():
                 self.total_loss_diffs = []
+                self.total_losses = []
             else:
                 self.dim += 1
 
@@ -179,7 +180,7 @@ class BMDSTrain(BMDS):
             loss_samples = torch.tensor(self.total_losses[-self.n_iters_check:])
             frac = diff_samples.mean() / loss_samples.mean()
             self.log("frac", frac, prog_bar=True)
-            del diff_samples, diff_samples, loss_samples
+            del diff_samples, loss_samples
             return frac < self.threshold
 
 
@@ -236,7 +237,7 @@ class SklearnBMDS:
     def __init__(
             self,
             *,
-            batch_size_train: int = 4000,
+            batch_size_train: int = 5e-4,
             batch_size_eval: int = 1e-2,
             bmds_train_kwargs: Union[Dict[str, Any], None] = None,
             bmds_eval_kwargs: Union[Dict[str, Any], None] = None,
@@ -283,7 +284,7 @@ class SklearnBMDS:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         datamodule = DefaultDataModule(
             torch.arange(len(dist_mat_eval)),
-            dist_mat_eval,
+            dist_mat_eval ** 2,
             batch_size=self.batch_size_eval,
         )
         bmds_eval = BMDSEval(
