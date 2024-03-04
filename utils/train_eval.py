@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 
 import pytorch_lightning.loggers
 import torch
@@ -15,9 +15,9 @@ def train_eval_bmds(
         dist_mat_train: torch.Tensor,
         dist_mat_eval: torch.Tensor,
         *,
-        bmds_kwargs: Union[Dict[str, Any], None] = None,
-        bmds_train_kwargs: Union[Dict[str, Any], None] = None,
-        bmds_eval_kwargs: Union[Dict[str, Any], None] = None,
+        bmds_kwargs: Optional[Dict[str, Any]] = None,
+        bmds_train_kwargs: Optional[Dict[str, Any]] = None,
+        bmds_eval_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     bmds = SklearnBMDS(**(bmds_kwargs or dict()))
 
@@ -40,11 +40,11 @@ def train_eval_clf(
         y_train: torch.Tensor,
         x_eval: torch.Tensor,
         y_eval: torch.Tensor,
-        std_train: Union[torch.Tensor, None] = None,
-        std_eval: Union[torch.Tensor, None] = None,
+        std_train: Optional[torch.Tensor] = None,
+        std_eval: Optional[torch.Tensor] = None,
         *,
-        clf_kwargs: Union[Dict[str, Any], None] = None,
-        clf_train_kwargs: Union[Dict[str, Any], None] = None,
+        clf_kwargs: Optional[Dict[str, Any]] = None,
+        clf_train_kwargs: Optional[Dict[str, Any]] = None,
 ) -> None:
     clf = SklearnMLPClassifier(y_train.max() + 1, **(clf_kwargs or dict()))
 
@@ -65,13 +65,13 @@ def train_eval(
         name: str,
         dist_mat: torch.Tensor,
         y: torch.Tensor,
-        idx_train_eval: Union[Tuple[torch.Tensor, torch.Tensor], None] = None,
+        idx_train_eval: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         *,
-        bmds_kwargs: Union[Dict[str, Any], None] = None,
-        bmds_train_kwargs: Union[Dict[str, Any], None] = None,
-        bmds_eval_kwargs: Union[Dict[str, Any], None] = None,
-        clf_kwargs: Union[Dict[str, Any], None] = None,
-        clf_train_kwargs: Union[Dict[str, Any], None] = None,
+        bmds_kwargs: Optional[Dict[str, Any]] = None,
+        bmds_train_kwargs: Optional[Dict[str, Any]] = None,
+        bmds_eval_kwargs: Optional[Dict[str, Any]] = None,
+        clf_kwargs: Optional[Dict[str, Any]] = None,
+        clf_train_kwargs: Optional[Dict[str, Any]] = None,
 ):
     if idx_train_eval is None:
         idx_train, idx_eval = train_test_split(torch.arange(len(y)))

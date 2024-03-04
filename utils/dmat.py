@@ -1,4 +1,4 @@
-from typing import Union, Callable, TypeVar, Sequence
+from typing import Union, Callable, TypeVar, Sequence, Optional
 from itertools import combinations, product
 import torch
 from tqdm import tqdm
@@ -15,7 +15,7 @@ def compute_euclidean_dist(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
 def compute_pairwise_dist(
         data1: Sequence[object_type],
-        data2: Union[Sequence[object_type], None] = None,
+        data2: Optional[Sequence[object_type]] = None,
         *,
         eps: float = 1e-6,
         compute_dist: Callable[[object_type, object_type], float] = compute_euclidean_dist,

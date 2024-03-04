@@ -1,11 +1,13 @@
 from abc import abstractmethod
-from typing import Tuple, Any, Union, Callable, Dict, TypeVar, Sequence, List
+from typing import Tuple, Any, Callable, Dict, TypeVar, List, Optional, Union
 
 
 import torch
 from pytorch_lightning import LightningModule, Trainer
+import numpy as np
 
 from .data import DefaultDataModule, DistMatrixDataModule
+from .utils import check_tensor
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -13,8 +15,6 @@ DTYPE = torch.float32
 
 
 class BMDS(LightningModule):
-    x: torch.Tensor
-    std: torch.Tensor
     dim: int
 
     def __init__(
@@ -60,7 +60,7 @@ class BMDS(LightningModule):
     @abstractmethod
     def regularization(
             self,
-            idx: Union[int, None] = None,
+            idx: Optional[int] = None,
     ) -> torch.Tensor:
         raise NotImplementedError
 
@@ -131,7 +131,7 @@ class BMDSTrain(BMDS):
 
     def regularization(
             self,
-            idx: Union[int, None] = None,
+            idx: Optional[int] = None,
     ) -> torch.Tensor:
         self.scale = self.compute_scale()
         l, r = (0, self.dim) if idx is None else (idx, idx + 1)
@@ -216,7 +216,7 @@ class BMDSEval(BMDS):
 
     def regularization(
             self,
-            idx: Union[int, None] = None
+            idx: Optional[int] = None
     ) -> torch.Tensor:
         return (self.alpha * (self.x ** 2 + self.std ** 2) - torch.log(self.alpha * self.std ** 2)).sum() / 2 / self.m
 
@@ -240,8 +240,8 @@ class SklearnBMDS:
             *,
             batch_size_train: int = 5e-4,
             batch_size_eval: int = 1e-2,
-            bmds_train_kwargs: Union[Dict[str, Any], None] = None,
-            bmds_eval_kwargs: Union[Dict[str, Any], None] = None,
+            bmds_train_kwargs: Optional[Dict[str, Any]] = None,
+            bmds_eval_kwargs: Optional[Dict[str, Any]] = None,
             device: torch.device = DEVICE,
     ):
         self.batch_size_train = batch_size_train
@@ -252,9 +252,10 @@ class SklearnBMDS:
 
     def fit(
             self,
-            dist_mat_train: torch.Tensor,
+            dist_mat_train: Union[torch.Tensor, np.ndarray],
             **trainer_kwargs: Any,
     ) -> None:
+        dist_mat_train = check_tensor(dist_mat_train)
         datamodule = DistMatrixDataModule(dist_mat_train, batch_size=self.batch_size_train)
         bmds_train = BMDSTrain(
             len(dist_mat_train),
@@ -273,10 +274,10 @@ class SklearnBMDS:
 
     def fit_transform(
             self,
-            train_data: Union[Sequence[object_type], torch.Tensor],
+            dist_mat_train: torch.Tensor,
             **kwargs: Any,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        self.fit(train_data, **kwargs)
+        self.fit(dist_mat_train, **kwargs)
         return self.x_train, self.std_train
 
     def transform(
@@ -284,6 +285,7 @@ class SklearnBMDS:
             dist_mat_eval: torch.Tensor,
             **trainer_kwargs: Any,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        dist_mat_eval = check_tensor(dist_mat_eval)
         datamodule = DefaultDataModule(
             torch.arange(len(dist_mat_eval)),
             (dist_mat_eval / self.max_dist) ** 2,

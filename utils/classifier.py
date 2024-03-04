@@ -1,11 +1,14 @@
-from typing import Union, Tuple, List, Dict, Any
+from typing import Union, Tuple, List, Dict, Any, Optional
 
 import torch
 from pytorch_lightning import LightningModule, Trainer
+import numpy as np
 
 from .data import DefaultDataModule
+from .utils import check_tensor
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DTYPE = torch.float32
 
 
 class MLPClassifier(LightningModule):
@@ -86,11 +89,15 @@ class SklearnMLPClassifier:
 
     def fit(
             self,
-            x_train: torch.Tensor,
-            y_train: torch.Tensor,
-            std_train: Union[torch.Tensor, None] = None,
+            x_train: Union[torch.Tensor, np.ndarray],
+            y_train: Union[torch.Tensor, np.ndarray],
+            std_train: Optional[Union[torch.Tensor, np.ndarray]] = None,
             **trainer_kwargs: Any,
     ) -> None:
+        x_train = check_tensor(x_train)
+        y_train = check_tensor(y_train, dtype=torch.int8)
+        if std_train is not None:
+            std_train = check_tensor(std_train)
         datamodule = DefaultDataModule(
             x_train,
             y_train,
@@ -103,20 +110,24 @@ class SklearnMLPClassifier:
 
     def fit_predict(
             self,
-            x_train: torch.Tensor,
-            y_train: torch.Tensor,
-            std_train: Union[torch.Tensor, None] = None,
+            x_train: Union[torch.Tensor, np.ndarray],
+            y_train: Union[torch.Tensor, np.ndarray],
+            std_train: Optional[Union[torch.Tensor, np.ndarray]] = None,
             **kwargs: Any,
     ) -> torch.Tensor:
+        x_train = check_tensor(x_train)
         self.fit(x_train, y_train, std_train=std_train, **kwargs)
         return self.predict(x_train)
 
     def predict(
             self,
-            x_eval: torch.Tensor,
-            std_eval: Union[torch.Tensor, None] = None
+            x_eval: Union[torch.Tensor, np.ndarray],
+            std_eval: Optional[Union[torch.Tensor, np.ndarray]] = None
     ) -> torch.Tensor:
+        x_eval = check_tensor(x_eval)
         if std_eval is None:
             return self.clf(x_eval).detach().cpu().argmax(dim=1)
         else:
-            return self.clf(x_eval + torch.randn(self.n_avg, *x_eval.shape) * std_eval).detach().cpu().mean(dim=0).argmax(dim=1)
+            std_eval = check_tensor(std_eval)
+            x_eval_sample = x_eval + torch.randn(self.n_avg, *x_eval.shape) * std_eval
+            return self.clf(x_eval_sample).detach().cpu().mean(dim=0).argmax(dim=1)
