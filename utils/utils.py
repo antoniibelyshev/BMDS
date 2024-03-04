@@ -32,7 +32,7 @@ def read_graph_dataset(name: str, path: str = "./data") -> Tuple[List[nx.Graph],
     return graphs, graph_labels
 
 
-def get_graphs(adjacency_list: np.ndarray, graph_indicator: np.ndarray):
+def get_graphs(adjacency_list: np.ndarray, graph_indicator: np.ndarray) -> List[nx.Graph]:
     ids, graph_sizes = np.unique(graph_indicator, return_counts=True)
     adjacency_matrices = [np.zeros((graph_size, graph_size)) for graph_size in graph_sizes]
     idx_shifts = np.cumsum(graph_sizes)
