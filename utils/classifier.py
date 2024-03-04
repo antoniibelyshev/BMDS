@@ -95,7 +95,7 @@ class SklearnMLPClassifier:
             **trainer_kwargs: Any,
     ) -> None:
         x_train = check_tensor(x_train)
-        y_train = check_tensor(y_train, dtype=torch.int8)
+        y_train = check_tensor(y_train, dtype=int)
         if std_train is not None:
             std_train = check_tensor(std_train)
         datamodule = DefaultDataModule(
