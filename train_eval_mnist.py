@@ -15,4 +15,4 @@ if __name__ == "__main__":
     bmds_kwargs = {"bmds_train_kwargs": {"max_dim": 100}}
     bmds_train_kwargs = {"max_epochs": 3}
 
-    train_eval_k_fold("MNIST", W, labels, k=4, bmds_kwargs=bmds_kwargs, bmds_train_kwargs=bmds_train_kwargs)
+    train_eval_k_fold("MNIST", W, labels, k=5, bmds_kwargs=bmds_kwargs, bmds_train_kwargs=bmds_train_kwargs)

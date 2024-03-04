@@ -228,6 +228,7 @@ class SklearnBMDS:
     dim: int
     x_train: torch.Tensor
     std_train: torch.Tensor
+    max_dist: float
 
     TRAINER_DEFAULTS: Dict[str, Any] = {
         "gpus": 1 if torch.cuda.is_available() else 0,
@@ -268,6 +269,7 @@ class SklearnBMDS:
         self.dim = bmds_train.dim
         self.x_train = bmds_train.x[:, :self.dim].detach().cpu()
         self.std_train = bmds_train.std[:, :self.dim].detach().cpu()
+        self.max_dist = dist_mat_train.max()
 
     def fit_transform(
             self,
@@ -284,7 +286,7 @@ class SklearnBMDS:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         datamodule = DefaultDataModule(
             torch.arange(len(dist_mat_eval)),
-            dist_mat_eval ** 2,
+            (dist_mat_eval / self.max_dist) ** 2,
             batch_size=self.batch_size_eval,
         )
         bmds_eval = BMDSEval(
