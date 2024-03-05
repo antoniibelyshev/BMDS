@@ -299,7 +299,7 @@ class SklearnBMDS:
             **self.bmds_eval_kwargs,
         )
 
-        print("\nLearning the optimal train embedding...")
+        print("\nLearning the optimal eval embedding...")
         trainer = Trainer(**{**self.TRAINER_DEFAULTS, **trainer_kwargs})
         trainer.fit(bmds_eval, datamodule=datamodule)
 

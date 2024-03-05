@@ -48,7 +48,7 @@ class MLPClassifier(LightningModule):
         for layer in self.layers:
             x = layer(x)
         if self.output_dim == 1:
-            x = torch.cat((torch.zeros_like(x), x), dim=1)
+            x = torch.cat((torch.zeros_like(x), x), dim=-1)
         return x
 
     def loss(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
