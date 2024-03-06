@@ -22,7 +22,7 @@ class BMDSMCMC:
             sample_size: int = 100,
             n_iter: int = 10000,
             init_log_diff: float = 4.0,
-            n_neighbors: Union[int, float],
+            n_neighbors: Union[int, float] = 0.2,
     ):
         self.m = m
         self.gamma = gamma
