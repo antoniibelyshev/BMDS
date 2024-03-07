@@ -2,6 +2,7 @@
 
 \usepackage{amssymb, amsmath}
 \usepackage{mathtools}
+\usepackage{physics}
 
 \newcommand{\Exp}{\mathrm{Exp}}
 \newcommand{\N}{\mathcal{N}}
@@ -9,7 +10,7 @@
 \newcommand{\diag}{\mathrm{diag}}
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\R}{\mathbb{R}}
-\DeclareMathOperator{\tr}{tr}
+% \DeclareMathOperator{\tr}{tr}
 \DeclareMathOperator{\Reg}{Reg}
 \DeclareMathOperator{\KL}{KL}
 
@@ -312,6 +313,20 @@ We can use the following formula:
 
 \begin{equation}
     p(y|w) \ge \E_{q(X)} \E_{q(y)} \log p(w|y, X) - \sum\limits_j \frac{1}{2}\log(\alpha_j s_j^2) - \sum\limits_j \frac{1}{2}\alpha_j (m_j^2 + s_j^2)
+\end{equation}
+
+\section*{MCMC}
+
+\begin{equation}
+    \hat{p}(X|W, A) = p(W|X)p(X|A) =
+    \prod_{i < j} \frac{1}{d^2(X_i, X_j)}\exp\left( -W_{ij} / d^2(X_j, X_j) \right)
+    \prod_i \N(X_i | 0, A^{-1})
+\end{equation}
+\begin{equation}
+    \nabla_{X_i} \log\hat{p}(X|W, A) =
+    2\sum\limits_{j \ne i} \left(
+        \frac{W_{ij} - d^2(X_i, X_j)}{d^4(X_i, X_j)}
+    \right) (X_i - X_j) - A X_i
 \end{equation}
 
 \end{document}
