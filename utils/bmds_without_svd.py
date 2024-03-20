@@ -80,6 +80,8 @@ class BMDS(LightningModule):
 
 
 class BMDSTrain(BMDS):
+    mask: torch.Tensor
+
     def __init__(
             self,
             n: int,
@@ -105,8 +107,8 @@ class BMDSTrain(BMDS):
             self,
             idx: torch.Tensor,
     ) -> torch.Tensor:
-        diffs = self.x[idx.T[0]] - self.x[idx.T[1]]
-        std = (self.std[idx.T[0]] ** 2 + self.std[idx.T[1]] ** 2) ** 0.5
+        diffs = self.x[:, self.mask][idx.T[0]] - self.x[:, self.mask][idx.T[1]]
+        std = (self.std[:, self.mask][idx.T[0]] ** 2 + self.std[:, self.mask][idx.T[1]] ** 2) ** 0.5
         xi = torch.randn_like(diffs) * std
         dist_sqr = ((diffs + xi) ** 2).sum(axis=-1)
         del idx, diffs, std, xi
@@ -120,11 +122,12 @@ class BMDSTrain(BMDS):
             idx: Optional[int] = None,
     ) -> torch.Tensor:
         self.scale = self.compute_scale()
-        l, r = (0, self.dim) if idx is None else (idx, idx + 1)
-        return (torch.log(self.scale[l:r]).sum() - torch.log(self.std[:, l:r] ** 2).mean(dim=0).sum()) / (self.n - 1)
+        return (torch.log(self.scale[self.mask]).sum() -
+                torch.log(self.std[:, self.mask] ** 2).mean(dim=0).sum()) / (self.n - 1)
 
     def compute_mask(self) -> torch.Tensor:
-        return ((self.x / self.std) ** 2).mean(dim=0) > self.threshold
+        self.mask = ((self.x / self.std) ** 2).mean(dim=0) > self.threshold
+        return self.mask
 
     def on_train_batch_start(
             self,
