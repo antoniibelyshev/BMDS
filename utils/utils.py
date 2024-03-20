@@ -9,6 +9,16 @@ import torch
 DTYPE = torch.float32
 
 
+def normal_kl(
+        mu1: Union[torch.Tensor, float],
+        sigma_sqr1: Union[torch.Tensor, float],
+        mu2: Union[torch.Tensor, float],
+        sigma_sqr2: Union[torch.Tensor, float],
+        keep_const: bool = True,
+) -> torch.Tensor:
+    return (torch.log(sigma_sqr2 / sigma_sqr1) + ((mu1 - mu2).pow(2) + sigma_sqr1) / sigma_sqr2 - keep_const) / 2
+
+
 def check_tensor(t: Union[torch.Tensor, np.ndarray], dtype: torch.dtype = DTYPE) -> torch.Tensor:
     if isinstance(t, torch.Tensor):
         return t
