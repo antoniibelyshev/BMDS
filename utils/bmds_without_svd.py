@@ -97,8 +97,6 @@ class BMDSTrain(BMDS):
         self.max_dim = max_dim
         self.threshold = threshold
 
-        self.scale = self.compute_scale()
-
         self.dim = max_dim
         self.total_loss_diffs: List[float] = []
         self.total_losses: List[float] = []
@@ -107,35 +105,21 @@ class BMDSTrain(BMDS):
             self,
             idx: torch.Tensor,
     ) -> torch.Tensor:
-        diffs = self.x[:, self.mask][idx.T[0]] - self.x[:, self.mask][idx.T[1]]
-        std = (self.std[:, self.mask][idx.T[0]] ** 2 + self.std[:, self.mask][idx.T[1]] ** 2) ** 0.5
+        diffs = self.x[idx.T[0]] - self.x[idx.T[1]]
+        std = (self.std[idx.T[0]].pow(2) + self.std[idx.T[1]].pow(2)).pow(0.5)
         xi = torch.randn_like(diffs) * std
-        dist_sqr = ((diffs + xi) ** 2).sum(axis=-1)
+        dist_sqr = (diffs + xi).pow(2).sum(axis=-1)
         del idx, diffs, std, xi
         return dist_sqr
-
-    def compute_scale(self) -> torch.Tensor:
-        return (self.x ** 2).mean(dim=0) + (self.std ** 2).mean(dim=0)
 
     def regularization(
             self,
             idx: Optional[int] = None,
     ) -> torch.Tensor:
-        self.scale = self.compute_scale()
-        return (torch.log(self.scale[self.mask]).sum() -
-                torch.log(self.std[:, self.mask] ** 2).mean(dim=0).sum()) / (self.n - 1)
-
-    def compute_mask(self) -> torch.Tensor:
-        self.mask = ((self.x / self.std) ** 2).mean(dim=0) > self.threshold
-        return self.mask
-
-    def on_train_batch_start(
-            self,
-            batch: Tuple[torch.Tensor, torch.Tensor],
-            batch_idx: int,
-    ) -> None:
-        self.log("dim", self.compute_mask().sum())
-
+        scale = self.x.pow(2).mean(dim=0) + self.std.pow(2).mean(dim=0)
+        reg = (torch.log(scale).sum() - torch.log(self.std.pow(2)).mean(dim=0).sum()) / (self.n - 1)
+        del scale
+        return reg
 
 
 class BMDSEval(BMDS):
@@ -155,16 +139,16 @@ class BMDSEval(BMDS):
         self.std_train = std_train.to(device)
         self.m = len(x_train)
 
-        self.alpha = ((x_train ** 2).mean(dim=0) + (std_train ** 2).mean(axis=0)).to(device)
+        self.lam_sqr = (x_train.pow(2).mean(dim=0) + std_train.pow(2).mean(axis=0)).to(device)
 
     def sample_dist_sqr(
             self,
             idx: torch.Tensor,
     ) -> torch.Tensor:
         diffs = self.x - self.x_train[idx, None]
-        std = (self.std ** 2 + self.std_train[idx, None] ** 2) ** 0.5
+        std = (self.std.pow(2) + self.std_train[idx, None].pow(2)).pow(0.5)
         xi = torch.randn_like(diffs) * std
-        dist_sqr = ((diffs + xi) ** 2).sum(dim=2)
+        dist_sqr = (diffs + xi).pow(2).sum(dim=2)
         del idx, diffs, std, xi
         return dist_sqr
 
@@ -172,7 +156,8 @@ class BMDSEval(BMDS):
             self,
             idx: Optional[int] = None
     ) -> torch.Tensor:
-        return (self.alpha * (self.x ** 2 + self.std ** 2) - torch.log(self.alpha * self.std ** 2)).sum() / 2 / self.m
+        return ((self.x.pow(2) + self.std.pow(2)) / self.lam_sqr -
+                torch.log(self.std.pow(2) / self.lam_sqr)).sum() / 2 / self.m
 
 
 object_type = TypeVar('object_type')
@@ -220,15 +205,9 @@ class SklearnBMDS:
         print("\nLearning the optimal train embedding...")
         trainer = Trainer(**{**self.TRAINER_DEFAULTS, **trainer_kwargs})
         trainer.fit(bmds_train, datamodule=datamodule)
-        
-        self.full_x_train = bmds_train.x.detach().cpu()
-        self.full_std_train = bmds_train.std.detach().cpu()
 
-        mask = bmds_train.compute_mask().detach().cpu()
-        self.dim = mask.sum()
-
-        self.x_train = self.full_x_train[:, mask]
-        self.std_train = self.full_std_train[:, mask]
+        self.x_train = bmds_train.x.detach().cpu()
+        self.std_train = bmds_train.std.detach().cpu()
 
         self.max_dist = dist_mat_train.max()
 
