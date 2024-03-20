@@ -86,12 +86,14 @@ class BMDSTrain(BMDS):
             *,
             max_dim: int = 10,
             lr: float = 1e-3,
+            threshold: float = 0.1,
             optim: Callable[[List[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
             device: torch.device = DEVICE,
     ):
         super().__init__(n, max_dim, lr=lr, optim=optim, device=device)
 
         self.max_dim = max_dim
+        self.threshold = threshold
 
         self.scale = self.compute_scale()
 
@@ -120,6 +122,18 @@ class BMDSTrain(BMDS):
         self.scale = self.compute_scale()
         l, r = (0, self.dim) if idx is None else (idx, idx + 1)
         return (torch.log(self.scale[l:r]).sum() - torch.log(self.std[:, l:r] ** 2).mean(dim=0).sum()) / (self.n - 1)
+
+    def compute_mask(self) -> torch.Tensor:
+        return ((self.x / self.std) ** 2).mean(dim=0) > self.threshold
+
+    def on_train_batch_start(
+            self,
+            batch: Tuple[torch.Tensor, torch.Tensor],
+            batch_idx: int,
+    ) -> None:
+        self.log("dim", self.compute_mask().sum())
+
+
 
 class BMDSEval(BMDS):
     def __init__(
@@ -203,10 +217,16 @@ class SklearnBMDS:
         print("\nLearning the optimal train embedding...")
         trainer = Trainer(**{**self.TRAINER_DEFAULTS, **trainer_kwargs})
         trainer.fit(bmds_train, datamodule=datamodule)
+        
+        self.full_x_train = bmds_train.x.detach().cpu()
+        self.full_std_train = bmds_train.std.detach().cpu()
 
-        self.dim = bmds_train.dim
-        self.x_train = bmds_train.x[:, :self.dim].detach().cpu()
-        self.std_train = bmds_train.std[:, :self.dim].detach().cpu()
+        mask = bmds_train.compute_mask().detach().cpu()
+        self.dim = mask.sum()
+
+        self.x_train = self.full_x_train[:, mask]
+        self.std_train = self.full_std_train[:, mask]
+
         self.max_dist = dist_mat_train.max()
 
     def fit_transform(
