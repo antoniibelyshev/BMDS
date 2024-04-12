@@ -6,7 +6,7 @@ import torch
 from pytorch_lightning import LightningModule, Trainer
 import numpy as np
 
-from .data import DefaultDataModule, DistMatrixDataModule
+from .data import DistMatrixDataModule
 from .utils import check_tensor, gen_mlp
 
 
@@ -91,15 +91,15 @@ class BMDSTrain(BMDS):
 
     def __init__(
             self,
-            n: int,
+            s: torch.Tensor,
             *,
             max_dim: int = 10,
             lr: float = 1e-3,
             threshold: float = 0.1,
-            optim: Callable[[List[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
+            optim: Callable[[Iterable[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
             device: torch.device = DEVICE,
     ):
-        super().__init__(n, max_dim, lr=lr, optim=optim, device=device)
+        super().__init__(s, max_dim, lr=lr, optim=optim, device=device)
 
         self.max_dim = max_dim
         self.threshold = threshold
@@ -131,8 +131,7 @@ class BMDSTrain(BMDS):
 
 class SklearnBMDS:
     dim: int
-    x_train: torch.Tensor
-    std_train: torch.Tensor
+    bmds_train: BMDSTrain
     max_dist: float
 
     TRAINER_DEFAULTS: Dict[str, Any] = {
@@ -161,21 +160,17 @@ class SklearnBMDS:
             **trainer_kwargs: Any,
     ) -> None:
         dist_mat_train = check_tensor(dist_mat_train)
+        self.max_dist = dist_mat_train.max()
         datamodule = DistMatrixDataModule(dist_mat_train, batch_size=self.batch_size_train)
-        bmds_train = BMDSTrain(
-            len(dist_mat_train),
+        self.bmds_train = BMDSTrain(
+            dist_mat_train.pow(2),
             device=DEVICE,
             **self.bmds_train_kwargs,
         )
 
         print("\nLearning the optimal train embedding...")
         trainer = Trainer(**{**self.TRAINER_DEFAULTS, **trainer_kwargs})
-        trainer.fit(bmds_train, datamodule=datamodule)
-
-        self.x_train = bmds_train.x.detach().cpu()
-        self.std_train = bmds_train.std.detach().cpu()
-
-        self.max_dist = dist_mat_train.max()
+        trainer.fit(self.bmds_train, datamodule=datamodule)
 
     def fit_transform(
             self,
@@ -183,29 +178,16 @@ class SklearnBMDS:
             **kwargs: Any,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         self.fit(dist_mat_train, **kwargs)
-        return self.x_train, self.std_train
+        return self.transform(dist_mat_train)
 
     def transform(
             self,
-            dist_mat_eval: torch.Tensor,
-            **trainer_kwargs: Any,
+            dist_mat: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        dist_mat_eval = check_tensor(dist_mat_eval)
-        datamodule = DefaultDataModule(
-            torch.arange(len(dist_mat_eval)),
-            (dist_mat_eval / self.max_dist) ** 2,
-            batch_size=self.batch_size_eval,
-        )
-        bmds_eval = BMDSEval(
-            dist_mat_eval.shape[1],
-            self.x_train,
-            self.std_train,
-            device=DEVICE,
-            **self.bmds_eval_kwargs,
-        )
+        dist_mat = check_tensor(dist_mat) / self.max_dist
 
-        print("\nLearning the optimal eval embedding...")
-        trainer = Trainer(**{**self.TRAINER_DEFAULTS, **trainer_kwargs})
-        trainer.fit(bmds_eval, datamodule=datamodule)
+        parameters = self.bmds_train.compute_parameters(dist_mat).reshape(-1, self.dim, 2)
+        x = parameters[..., 0]
+        std = parameters[..., 1]
 
-        return bmds_eval.x.detach().cpu(), bmds_eval.std.detach().cpu()
+        return x, std
