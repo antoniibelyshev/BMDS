@@ -3,6 +3,7 @@ import pytorch_lightning as pl
 import torch
 from torch.utils import data
 from itertools import combinations, product
+from math import ceil
 
 
 class Dataset(data.Dataset):
@@ -47,7 +48,7 @@ class DefaultDataModule(pl.LightningDataModule):
         self.dataset = Dataset(*tensors, stds=stds)
 
         if isinstance(batch_size, float):
-            batch_size = int(len(self.dataset) * batch_size)
+            batch_size = ceil((len(self.dataset) * batch_size))
         self.batch_size = batch_size
 
     def train_dataloader(self):
