@@ -1,6 +1,6 @@
 import io
 import zipfile
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Type
 
 import networkx as nx
 import numpy as np
@@ -43,3 +43,18 @@ def get_graphs(adjacency_list: np.ndarray, graph_indicator: np.ndarray) -> List[
         adjacency_matrices[graph_id][row - idx_shift, col - idx_shift] = 1
 
     return [nx.Graph(adj) for adj in adjacency_matrices]
+
+
+def gen_mlp(
+        input_dim: int,
+        output_dim: int,
+        hidden_dim: int = 1000,
+        hidden_layers: int = 4,
+        act_fn: Type[torch.nn.Module] = torch.nn.Tanh,
+) -> torch.nn.Module:
+    return torch.nn.Sequential(
+        torch.nn.Linear(input_dim, hidden_dim),
+        act_fn(),
+        *[torch.nn.Sequential(torch.nn.Linear(hidden_dim, hidden_dim), act_fn()) for _ in range(hidden_layers - 2)],
+        torch.nn.Linear(hidden_dim, output_dim),
+    )
