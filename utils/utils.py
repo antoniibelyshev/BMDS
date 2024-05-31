@@ -49,8 +49,8 @@ def gen_mlp(
         input_dim: int,
         output_dim: int,
         hidden_dim: int = 1000,
-        hidden_layers: int = 4,
-        act_fn: Type[torch.nn.Module] = torch.nn.Tanh,
+        hidden_layers: int = 2,
+        act_fn: Type[torch.nn.Module] = torch.nn.PReLU,
 ) -> torch.nn.Module:
     return torch.nn.Sequential(
         torch.nn.Linear(input_dim, hidden_dim),
