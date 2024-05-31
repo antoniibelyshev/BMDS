@@ -4,14 +4,14 @@ from ..utils.nn import default_create_nn_layers
 from typing import Any, Callable
 
 
-class bmds(nn.Module):
+class BMDS(nn.Module):
     def __init__(
             self,
             *args: Any,
             create_nn_layers: Callable[..., Any] = default_create_nn_layers,
             **kwargs: Any,
     ):
-        super(bmds, self).__init__()
+        super().__init__()
 
         layers = create_nn_layers(*args, **kwargs)
 
