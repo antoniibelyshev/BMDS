@@ -12,6 +12,7 @@ from .utils import check_tensor, gen_mlp
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DTYPE = torch.float32
+eps = 1e-10
 
 
 class BMDS(LightningModule):
@@ -36,8 +37,11 @@ class BMDS(LightningModule):
         self.n = len(s)
         self.lr = lr
         self.optim = optim
+        self.scheduler = None
 
         self.compute_parameters = gen_network(self.n, 2 * dim).to(device)
+
+        
 
     @abstractmethod
     def sample_dist_sqr(
@@ -52,8 +56,9 @@ class BMDS(LightningModule):
     ) -> torch.Tensor:
         idx, observed_dist_sqr = batch
         sampled_dist_sqr = self.sample_dist_sqr(idx)
-        ratio = observed_dist_sqr / sampled_dist_sqr
-        loss = (ratio - torch.log(ratio) - 1).mean(dim=0).sum()
+        ratio = observed_dist_sqr / (sampled_dist_sqr + eps)
+        self.log("mean ratio", ratio.mean())
+        loss = (ratio - torch.log(ratio + eps) - 1).mean(dim=0).sum()
         del batch, idx, observed_dist_sqr, sampled_dist_sqr, ratio
         return loss
 
@@ -65,9 +70,15 @@ class BMDS(LightningModule):
         raise NotImplementedError
 
     def on_train_batch_start(self, batch: Any, batch_idx: int) -> None:
-        parameters = self.compute_parameters(self.s).reshape(-1, self.dim, 2)
-        self.x = parameters[..., 0]
-        self.std = parameters[..., 1]
+        parameters = self.compute_parameters(self.s).reshape(-1, 2, self.dim)
+        self.x = parameters[..., 0, :]
+        self.std = parameters[..., 1, :]
+
+        if self.scheduler is not None:
+            self.scheduler.step()
+
+        for i, scale in enumerate(sorted((self.x.pow(2) / self.std.pow(2)).mean(0), key=lambda f: -f)[:5]):
+            self.log(f"importance #{i + 1}", scale)
 
     def training_step(
             self,
@@ -83,7 +94,11 @@ class BMDS(LightningModule):
         return total_loss
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        return self.optim(self.parameters(), self.lr)
+        optim = self.optim(self.parameters(), self.lr)
+        if isinstance(optim, tuple):
+            self.scheduler = optim[1]
+            return optim[0]
+        return optim
 
 
 class BMDSTrain(BMDS):
@@ -94,12 +109,14 @@ class BMDSTrain(BMDS):
             s: torch.Tensor,
             *,
             max_dim: int = 10,
-            lr: float = 1e-3,
+            lr: float = 1e-4,
             threshold: float = 0.1,
             optim: Callable[[Iterable[torch.Tensor], float], torch.optim.Optimizer] = torch.optim.Adam,
             device: torch.device = DEVICE,
+            gen_network=gen_mlp,
+            reg_coefs=[],
     ):
-        super().__init__(s, max_dim, lr=lr, optim=optim, device=device)
+        super().__init__(s, max_dim, lr=lr, optim=optim, device=device, gen_network=gen_network)
 
         self.max_dim = max_dim
         self.threshold = threshold
@@ -108,14 +125,17 @@ class BMDSTrain(BMDS):
         self.total_loss_diffs: List[float] = []
         self.total_losses: List[float] = []
 
+        self.reg_coefs = reg_coefs
+        self.idx = -1
+
     def sample_dist_sqr(
             self,
             idx: torch.Tensor,
     ) -> torch.Tensor:
         diffs = self.x[idx.T[0]] - self.x[idx.T[1]]
-        std = (self.std[idx.T[0]].pow(2) + self.std[idx.T[1]].pow(2)).pow(0.5)
+        std = (self.std[idx.T[0]].pow(2) + self.std[idx.T[1]].pow(2) + eps).pow(0.5)
         xi = torch.randn_like(diffs) * std
-        dist_sqr = (diffs + xi).pow(2).sum(axis=-1)
+        dist_sqr = (diffs + xi).pow(2).mean(axis=-1)
         del idx, diffs, std, xi
         return dist_sqr
 
@@ -124,9 +144,10 @@ class BMDSTrain(BMDS):
             idx: Optional[int] = None,
     ) -> torch.Tensor:
         scale = self.x.pow(2).mean(dim=0) + self.std.pow(2).mean(dim=0)
-        reg = (torch.log(scale).sum() - torch.log(self.std.pow(2)).mean(dim=0).sum()) / (self.n - 1)
+        reg = (torch.log(scale + eps).sum() - torch.log(self.std.pow(2) + eps).mean(dim=0).sum()) / (self.n - 1)
         del scale
-        return reg
+        self.idx += 1
+        return (self.reg_coefs[self.idx] if self.idx < len(self.reg_coefs) else 1) * reg
 
 
 class SklearnBMDS:
@@ -160,7 +181,6 @@ class SklearnBMDS:
             **trainer_kwargs: Any,
     ) -> None:
         dist_mat_train = check_tensor(dist_mat_train)
-        self.max_dist = dist_mat_train.max()
         datamodule = DistMatrixDataModule(dist_mat_train, batch_size=self.batch_size_train)
         self.bmds_train = BMDSTrain(
             dist_mat_train.pow(2),
@@ -184,10 +204,10 @@ class SklearnBMDS:
             self,
             dist_mat: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        dist_mat = check_tensor(dist_mat) / self.max_dist
+        dist_mat = check_tensor(dist_mat)
 
-        parameters = self.bmds_train.compute_parameters(dist_mat).reshape(-1, self.dim, 2)
-        x = parameters[..., 0]
-        std = parameters[..., 1]
+        parameters = self.bmds_train.compute_parameters(dist_mat ** 2).reshape(-1, 2, self.bmds_train.dim).detach().cpu()
+        x = parameters[..., 0, :]
+        std = parameters[..., 1, :]
 
         return x, std
