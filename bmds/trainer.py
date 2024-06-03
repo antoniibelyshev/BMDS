@@ -1,12 +1,11 @@
-from abc import abstractmethod
-
 import torch
 from torch_ema import ExponentialMovingAverage
 import wandb
 from typing import Type, Union, Generator, Any, Dict, Optional
 from tqdm import trange
-# import math
-# import torchvision
+
+from .bmds import BMDS
+from ..utils.distributions import exponential_log_prob
 
 
 def dict_to_device(d: Dict[str, Any], device: torch.device) -> Dict[str, Any]:
@@ -105,3 +104,21 @@ class ClassifierTrainer(BaseTrainer):
     def calc_loss(self, batch: Dict[str, Any]) -> torch.Tensor:
         assert isinstance(batch['x'], torch.Tensor) and isinstance(batch['y'], torch.Tensor)
         return torch.nn.functional.cross_entropy(self.model(batch['x']), batch['y'])
+
+
+class BMDSTrainer(BaseTrainer):
+    def __init__(self, bmds: BMDS, dist: torch.Tensor, n: int, *args, log_prob=exponential_log_prob, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.bmds = bmds
+        self.dist = dist
+        self.n = n
+        self.log_prob = log_prob
+
+    def calc_loss(self, batch: Dict[str, Any]) -> torch.Tensor:
+        assert isinstance(batch['idx'], torch.Tensor) and isinstance(batch['dist'], torch.Tensor)
+        dist = self.bmds.dist(self.dist[batch['idx']])['dist']
+        log_prob = self.log_prob(batch['dist'], dist)
+        reg = self.bmds.reg(self.dist)['reg']
+        self.log_metric('reg', 'train', reg)
+        return -log_prob.mean() + reg / self.n / (self.n - 1)
