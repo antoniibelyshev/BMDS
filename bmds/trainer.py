@@ -1,14 +1,13 @@
 import torch
 from torch_ema import ExponentialMovingAverage
 import wandb
-from typing import Type, Union, Generator, Any, Dict, Optional
+from typing import Type, Generator, Any, Optional, Union
 from tqdm import trange
 
 from .bmds import BMDS
-from ..utils.distributions import exponential_log_prob
 
 
-def dict_to_device(d: Dict[str, Any], device: torch.device) -> Dict[str, Any]:
+def dict_to_device(d: dict[str, Any], device: torch.device) -> dict[str, Any]:
     for k, v in d.items():
         try:
             d[k] = v.to(device)
@@ -19,7 +18,7 @@ def dict_to_device(d: Dict[str, Any], device: torch.device) -> Dict[str, Any]:
 
 class BaseTrainer:
     default_optimizer: torch.optim.Optimizer = torch.optim.AdamW
-    default_optimizer_kwargs: Dict[str, Any] = {'lr': 2e-4, 'weight_decay': 1e-2}
+    default_optimizer_kwargs: dict[str, Any] = {'lr': 2e-4, 'weight_decay': 1e-2}
 
     def __init__(
         self,
@@ -56,7 +55,7 @@ class BaseTrainer:
     def switch_back_from_ema(self) -> None:
         self.ema.restore(self.model.parameters())
 
-    def calc_loss(self, batch: Dict[str, Any]) -> torch.Tensor:
+    def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         assert isinstance(batch['x'], torch.Tensor) and isinstance(batch['y'], torch.Tensor)
         return torch.nn.functional.mse_loss(self.model(batch['x']), batch['y'])
 
@@ -69,12 +68,12 @@ class BaseTrainer:
         self.optimizer.step()
         self.ema.update(self.model.parameters())
 
-    def on_train_iter_start(self, batch: Dict[str, Any]) -> None:
+    def on_train_iter_start(self, batch: dict[str, Any]) -> None:
         pass
 
     def train(
         self,
-        train_generator: Generator[Dict[str, Any]],
+        train_generator: Generator[dict[str, Any]],
         total_iters: int = 5000,
         project_name: str = 'default_project',
         experiment_name: str = 'default_experiment',
@@ -101,24 +100,20 @@ class BaseTrainer:
 
 
 class ClassifierTrainer(BaseTrainer):
-    def calc_loss(self, batch: Dict[str, Any]) -> torch.Tensor:
+    def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         assert isinstance(batch['x'], torch.Tensor) and isinstance(batch['y'], torch.Tensor)
         return torch.nn.functional.cross_entropy(self.model(batch['x']), batch['y'])
 
 
 class BMDSTrainer(BaseTrainer):
-    def __init__(self, bmds: BMDS, dist: torch.Tensor, n: int, *args, log_prob=exponential_log_prob, **kwargs):
+    def __init__(self, bmds: BMDS, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.bmds = bmds
-        self.dist = dist
-        self.n = n
-        self.log_prob = log_prob
 
-    def calc_loss(self, batch: Dict[str, Any]) -> torch.Tensor:
-        assert isinstance(batch['idx'], torch.Tensor) and isinstance(batch['dist'], torch.Tensor)
-        dist = self.bmds.dist(self.dist[batch['idx']])['dist']
-        log_prob = self.log_prob(batch['dist'], dist)
-        reg = self.bmds.reg(self.dist)['reg']
-        self.log_metric('reg', 'train', reg)
-        return -log_prob.mean() + reg / self.n / (self.n - 1)
+    def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
+        loss = self.bmds.loss(batch)
+        for name, val in loss.items():
+            if name != 'loss':
+                self.log_metric(name, 'train', val)
+        return loss['loss']
