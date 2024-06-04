@@ -4,8 +4,6 @@ import wandb
 from typing import Type, Generator, Any, Optional, Union
 from tqdm import trange
 
-from .bmds import BMDS
-
 
 def dict_to_device(d: dict[str, Any], device: torch.device) -> dict[str, Any]:
     for k, v in d.items():
@@ -73,7 +71,7 @@ class BaseTrainer:
 
     def train(
         self,
-        train_generator: Generator[dict[str, Any]],
+        train_generator: Generator[dict[str, Any], None, None],
         total_iters: int = 5000,
         project_name: str = 'default_project',
         experiment_name: str = 'default_experiment',
@@ -103,17 +101,3 @@ class ClassifierTrainer(BaseTrainer):
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         assert isinstance(batch['x'], torch.Tensor) and isinstance(batch['y'], torch.Tensor)
         return torch.nn.functional.cross_entropy(self.model(batch['x']), batch['y'])
-
-
-class BMDSTrainer(BaseTrainer):
-    def __init__(self, bmds: BMDS, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.bmds = bmds
-
-    def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
-        loss = self.bmds.loss(batch)
-        for name, val in loss.items():
-            if name != 'loss':
-                self.log_metric(name, 'train', val)
-        return loss['loss']

@@ -2,12 +2,12 @@ from torch import nn
 from typing import List
 
 
-def default_create_mlp_layers(
+def create_mlp_layers(
         input_dim: int,
         intermediate_dims: List[int],
         output_dim: int,
-        activation: str,
-        use_batch_norm: bool,
+        activation: str = 'ReLU',
+        use_batch_norm: bool = True,
         last_layer_activation: bool = False,
         last_layer_batch_norm: bool = False,
 ) -> List[nn.Module]:
