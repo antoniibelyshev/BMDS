@@ -1,9 +1,9 @@
 import torch.nn
 from torch import Tensor
 from torch import nn
-from ..utils.nn import create_mlp_layers
-from ..utils.distributions import exponential_log_prob
-from ..utils.trainer import BaseTrainer
+from .nn import create_mlp_layers
+from .distributions import exponential_log_prob
+from .trainer import BaseTrainer
 from typing import Any, Callable, Optional
 
 
@@ -11,9 +11,8 @@ eps = 1e-10
 
 
 class BMDS(nn.Module):
-    default_create_layers = create_mlp_layers
     default_create_layers_kwargs: dict[str, Any] = {
-        'intermediate_activation': 'PReLU',
+        'activation': 'PReLU',
         'use_batch_norm': True,
         'last_layer_activation':  True,
         'last_layer_batch_norm': True,
@@ -27,7 +26,7 @@ class BMDS(nn.Module):
             n_layers: int = 2,
             hidden_dim: int = 1000,
             embedding_dim: int = 100,
-            create_layers: Optional[Callable[..., Any]] = None,
+            create_layers: Optional[Callable[..., list[nn.Module]]] = None,
             **kwargs: Any,
     ):
         super().__init__()
@@ -35,7 +34,7 @@ class BMDS(nn.Module):
         self.n = n
 
         if create_layers is None:
-            create_layers = self.default_create_layers
+            create_layers = create_mlp_layers
             kwargs = {**self.default_create_layers_kwargs, **kwargs}
 
         head_layers = create_layers(input_dim, [hidden_dim] * (n_layers - 1), hidden_dim, **kwargs)
@@ -67,12 +66,10 @@ def sample_dist(mu: Tensor, log_sigma: Tensor) -> dict[str, Tensor]:
 
 class BMDSTrainer(BaseTrainer):
     def __init__(self, bmds: BMDS, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.bmds = bmds
+        super().__init__(bmds, *args, **kwargs)
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
-        loss = self.bmds.loss(batch)
+        loss = self.model.loss(batch)
         for name, val in loss.items():
             if name != 'loss':
                 self.log_metric(name, 'train', val)
