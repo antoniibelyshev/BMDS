@@ -15,7 +15,7 @@ class DefaultBMDSDataset(NamedDataset):
         dist_tensor = check_tensor(dist, device=device)
         idx = torch.tensor([*combinations(range(len(dist)), 2)])
 
-        super().__init__(['dist', 'inp'], [dist_tensor / dist_tensor.max(), DefaultInpDataset(dist_tensor, idx)])
+        super().__init__(['dist', 'inp'], [dist_tensor[idx.T[0], idx.T[1]] / dist_tensor.max(), DefaultInpDataset(dist_tensor, idx)])
 
 
 class DefaultInpDataset(Dataset):

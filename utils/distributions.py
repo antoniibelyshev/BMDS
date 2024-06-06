@@ -9,4 +9,4 @@ def exponential_log_prob(x, mu, exact=False):
         return -torch.log(mu + eps) - x / (mu + eps)
     else:
         y = x / (mu + eps)
-        return 1 - torch.log(y + eps) - y
+        return 1 + torch.log(y + eps) - y

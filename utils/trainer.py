@@ -76,7 +76,7 @@ class BaseTrainer:
         project_name: str = 'default_project',
         experiment_name: str = 'default_experiment',
     ) -> None:
-        session = wandb.init(project=project_name + '_parametrization', name=experiment_name, entity="antonii-belyshev")
+        session = wandb.init(project=project_name, name=experiment_name, entity="antonii-belyshev")
 
         self.model.train()
 
