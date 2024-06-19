@@ -1,16 +1,20 @@
+import torch
 from torch import nn
+import math
+import torch.nn.functional as F
+from typing import List
 
 
 def create_mlp_layers(
         input_dim: int,
-        intermediate_dims: list[int],
+        intermediate_dims: List[int],
         output_dim: int,
         *,
         activation: str = 'ReLU',
         use_batch_norm: bool = True,
         last_layer_activation: bool = False,
         last_layer_batch_norm: bool = False,
-) -> list[nn.Module]:
+) -> List[nn.Module]:
     layers = []
 
     for prev_dim, next_dim in zip([input_dim] + intermediate_dims, intermediate_dims):
