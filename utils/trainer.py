@@ -58,7 +58,7 @@ class BaseTrainer:
         return torch.nn.functional.mse_loss(self.model(batch['x']), batch['y'])
 
     def log_metric(self, metric_name: str, loader_name: str, value: Union[float, torch.Tensor]):
-        wandb.log({f'{metric_name}/{loader_name}': value}, step=self.step)
+        wandb.log({f'{metric_name}/{loader_name}': value.item()}, step=self.step)
 
     def optimizer_logic(self, loss: torch.Tensor) -> None:
         self.optimizer.zero_grad()
