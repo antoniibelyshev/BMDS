@@ -21,17 +21,15 @@ def update_ema(model: nn.Module, ema_model: nn.Module, decay: float):
 
 
 class BaseTrainer(Generic[T]):
-    step_metrics_names: list[str] = ['avg_total_loss', 'avg_loss', 'avg_reg']
-
     def __init__(
-            self,
-            model: T,
-            ema_model: T | None,
-            optimizer: Optimizer,
-            scheduler: lr_scheduler.LRScheduler | None = None,
-            *,
-            ema_decay: float = 0.999,
-            device: torch.device = DEVICE,
+        self,
+        model: T,
+        ema_model: T | None,
+        optimizer: Optimizer,
+        scheduler: lr_scheduler.LRScheduler | None = None,
+        *,
+        ema_decay: float = 0.999,
+        device: torch.device = DEVICE,
     ):
         self.model = model.to(device)
         self.ema_model = ema_model.to(device) if ema_model else deepcopy(model).to(device)
@@ -40,15 +38,17 @@ class BaseTrainer(Generic[T]):
 
         self.ema_decay = ema_decay
 
+        self.device = device
+
     def loss(self, batch: list[Tensor]) -> Tensor:
         raise NotImplementedError
     
     def train(
         self,
-        dataloader: DataLoader[list[Tensor]],
+        dataloader: DataLoader[tuple[Tensor, ...]],
         epochs: int = 100,
-        name: str = 'default experiment',
-        project: str = 'BMDS',
+        name: str = 'default',
+        project: str = 'PBMDS',
         entity: str = "ai-prentice",
         **eval_kwargs: Any,
     ) -> None:        
@@ -78,8 +78,8 @@ class BaseTrainer(Generic[T]):
 
         self.model.eval()
 
-    def eval(self, **kwargs: Any) -> dict[str, float]:
-        raise NotImplementedError
+    def eval(self, **kwargs: Any) -> Any:
+        pass
     
     def update_ema(self):
         update_ema(self.model, self.ema_model, self.ema_decay)
