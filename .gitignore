@@ -19,3 +19,6 @@ data/
 
 # Ignore environment files
 .env
+
+# Ignore temporary files
+*tmp*

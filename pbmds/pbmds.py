@@ -25,21 +25,21 @@ class SqueezingLinear(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         if self.training:
             mu = linear(x, self.weight)
-            std = safe_sqrt(linear(x.pow(2), self.weight_std.pow(2)))
+            std = safe_sqrt(linear(x.square(), self.weight_std.square()))
 
             return mu + std * torch.randn_like(mu)
         
         return linear(x, self.weight)
 
     def kl(self) -> Tensor:
-        sigma_sqr = self.weight.pow(2).mean(1) + self.weight_std.pow(2).mean(1)
-        return 0.5 * (safe_log(sigma_sqr).sum() * self.in_features - safe_log(self.weight_std.pow(2)).sum())
+        sigma_sqr = self.weight.square().mean(1) + self.weight_std.square().mean(1)
+        return 0.5 * (safe_log(sigma_sqr).sum() * self.in_features - safe_log(self.weight_std.square()).sum())
     
     def squeeze(self, x: Tensor) -> Tensor:
         return linear(x, self.weight[self.relevant_dims()])        
 
     def equivalent_dropout_rate(self) -> Tensor:
-        alpha = (self.weight / self.weight_std).pow(2)
+        alpha = (self.weight / self.weight_std).square()
         return alpha / (1 + alpha)
 
     def relevant_dims(self) -> tuple[Tensor, Tensor]:
@@ -50,20 +50,20 @@ class PBMDS(nn.Module):
     s: Tensor
 
     def __init__(
-            self,
-            s: Tensor,
-            hidden_dim: int = 100,
-            encoder_n_layers: int = 2,
-            decoder_n_layers: int = 2,
-            d: int = 100,
+        self,
+        in_features: int,
+        n: int,
+        hidden_dim: int = 100,
+        encoder_n_layers: int = 2,
+        decoder_n_layers: int = 2,
+        d: int = 100,
     ) -> None:
-        super(BMDS, self).__init__() # type: ignore
+        super(PBMDS, self).__init__() # type: ignore
 
-        self.register_buffer('s', s)
-        self.n = len(s)
+        self.n = n
 
         self.encoder = nn.Sequential(
-                nn.Linear(s.size(0), hidden_dim),
+                nn.Linear(in_features, hidden_dim),
                 nn.ReLU(),
                 *[
                     nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.ReLU())
@@ -81,19 +81,19 @@ class PBMDS(nn.Module):
                 nn.Linear(hidden_dim, d)
             )
 
-    def encode(self, s: Tensor | None) -> Tensor:
-        return self.encoder(s if s is not None else self.s)
+    def encode(self, x: Tensor) -> Tensor:
+        return self.encoder(x)
     
     def decode(self, z: Tensor) -> Tensor:
         return self.decoder(z)
 
-    def forward(self, s: Tensor | None = None) -> Tensor:
-        z = self.encode(s if s is not None else self.s)
+    def forward(self, x: Tensor) -> Tensor:
+        z = self.encode(x)
         z = self.squeezing_layer(z)
         return self.decode(z)
 
-    def embedding(self, s: Tensor | None = None) -> Tensor:
-        encoding = self.encode(s if s is not None else self.s)
+    def embedding(self, x: Tensor) -> Tensor:
+        encoding = self.encode(x)
         return self.squeezing_layer.squeeze(encoding).detach().cpu()
 
     def regularization(
