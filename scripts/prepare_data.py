@@ -34,11 +34,12 @@ def prepare_mnist_dataset(n_samples: int = 10000) -> None:
         MNIST('tmp_data', train=True, download=True, transform=ToTensor()),
         range(n_samples)
     ) # type: ignore
-    mnist_data = torch.cat([data for data, _ in mnist_dataset])
+    mnist_data = torch.stack([data.flatten() for data, _ in mnist_dataset], 0)
     labels = torch.tensor([label for _, label in mnist_dataset])
     prepare_vector_dataset("MNIST", mnist_data, labels)
 
 
 if __name__ == "__main__":
+    prepare_graph_dataset("IMDB-BINARY")
     prepare_graph_dataset("PROTEINS")
     prepare_mnist_dataset()

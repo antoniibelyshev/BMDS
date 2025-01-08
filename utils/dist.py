@@ -18,7 +18,7 @@ def compute_pw_dmat(data: list[T], compute_dist: Callable[[T, T], float]) -> lis
     return pw_dmat
 
 
-def compute_pw_dmat_vector(
+def compute_pw_dmat_vector_data(
     data: Tensor,
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
 ) -> Tensor:
