@@ -34,7 +34,7 @@ def compute_pw_dmat_vector_data(
     n, m = data.size()
     data.to(torch.device(device))
     norm_sqr = data.view(n, 1, m).pow(2).sum(2)
-    pw_dist = norm_sqr - 2 * data @ data.t() + norm_sqr.t()
+    pw_dist = (norm_sqr - 2 * data @ data.t() + norm_sqr.t()).sqrt()
     return pw_dist.cpu()
 
 

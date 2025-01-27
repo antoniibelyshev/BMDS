@@ -44,6 +44,9 @@ class SqueezingLinear(nn.Module):
     def relevant_dims(self) -> Tensor:
         return (self.equivalent_dropout_rate() > self.eps).any(1)
 
+    def relevance_score(self) -> Tensor:
+        return self.equivalent_dropout_rate().max(1).values
+
     @property
     def weight_std_sqr(self):
         return (2 * self.log_weight_std).exp()
@@ -95,6 +98,9 @@ class VBE(nn.Module):
 
     def relevant_dims(self) -> Tensor:
         return self.squeezing_layer.relevant_dims()
+
+    def relevance_score(self) -> Tensor:
+        return self.squeezing_layer.relevance_score()
 
     @property
     def device(self):

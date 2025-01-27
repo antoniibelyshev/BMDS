@@ -82,6 +82,9 @@ class VBETrainer:
 
     def eval(self) -> None:
         wandb.log({"relevant dims count": self.ema_model.relevant_dims().float().sum()})
+        relevance_score = sorted(self.ema_model.relevance_score())
+        for i in range(0, len(relevance_score), 10):
+            wandb.log({f"relevance score {i}": relevance_score[i]})
 
     def update_ema(self):
         update_ema(self.model, self.ema_model, self.ema_decay)
