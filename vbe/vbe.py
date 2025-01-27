@@ -42,10 +42,10 @@ class SqueezingLinear(nn.Module):
         return alpha / (1 + alpha)
 
     def relevant_dims(self) -> Tensor:
-        return (self.equivalent_dropout_rate() > self.eps).any(1)
+        return (self.equivalent_dropout_rate() < 1 - self.eps).any(1)
 
     def relevance_score(self) -> Tensor:
-        return self.equivalent_dropout_rate().max(1).values
+        return 1 - self.equivalent_dropout_rate().min(1).values
 
     @property
     def weight_std_sqr(self):

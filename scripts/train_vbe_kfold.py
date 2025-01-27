@@ -4,7 +4,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
 
-from pbmds import VBE, VBETrainer, VBEDataset
+from vbe import VBE, VBETrainer, VBEDataset
 
 
 def train_vbe(
