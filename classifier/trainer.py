@@ -26,8 +26,10 @@ class NNClassifierTrainer(BaseTrainer[NNClassifier]):
             logits = self.ema_model(x.to(self.device))
             loss = cross_entropy(logits, y.to(self.device))
             eval_loss += loss.item() * x.shape[0]
-            eval_acc += (logits.argmax(1) == y).sum().item()
+            eval_acc += (logits.argmax(1) == y.to(self.device)).sum().item()
             count += x.shape[0]
-
-        wandb.log({"eval_loss": eval_loss / count, "eval_acc": eval_acc / count})
+        try:
+            wandb.log({"eval_loss": eval_loss / count, "eval_acc": eval_acc / count})
+        except:
+            pass
         return eval_acc / count

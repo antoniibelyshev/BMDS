@@ -7,7 +7,7 @@ class NNClassifier(nn.Module):
         input_dim: int,
         n_classes: int,
         *,
-        hidden_dims: list[int] = [100] * 4,
+        hidden_dims: list[int] = [100] * 2,
         act_fn: type[nn.Module] = nn.ReLU,
     ) -> None:
         super().__init__()

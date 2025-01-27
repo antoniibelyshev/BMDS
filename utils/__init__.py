@@ -7,3 +7,4 @@ from .dist import (
     compute_pw_dmat as compute_pw_dmat,
     compute_pw_dmat_vector_data as compute_pw_dmat_vector_data
 )
+from .im_distance import compute_pw_im_distance as compute_pw_im_distance

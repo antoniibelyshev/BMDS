@@ -3,18 +3,30 @@ from itertools import combinations
 from tqdm import tqdm
 import torch
 from torch import Tensor
+from multiprocessing import cpu_count, Pool
 
 
 T = TypeVar('T')
 
 
+def compute_distance_pair(args: tuple[list[T], int, int, Callable[[T, T], float]]) -> tuple[int, int, float]:
+    data, i, j, compute_dist = args
+    return i, j, compute_dist(data[i], data[j])
+
+
 def compute_pw_dmat(data: list[T], compute_dist: Callable[[T, T], float]) -> list[list[float]]:
     n = len(data)
     pw_dmat = [[0.0] * n for _ in range(n)]
+    
+    # tasks = [(data, i, j, compute_dist) for i, j in combinations(range(n), 2)]
+    
+    # with Pool(processes=cpu_count()) as pool:
+    #     for i, j, dist in tqdm(pool.imap(compute_distance_pair, tasks, 10), total=len(tasks)):
+    #         pw_dmat[i][j] = pw_dmat[j][i] = dist
 
     for i, j in tqdm(combinations(range(n), 2), total=n * (n - 1) // 2):
         pw_dmat[i][j] = pw_dmat[j][i] = compute_dist(data[i], data[j])
-
+    
     return pw_dmat
 
 

@@ -59,7 +59,7 @@ class BaseTrainer(Generic[T]):
 
             for batch in dataloader:
                 self.optimizer.zero_grad()
-                loss = self.loss(batch)
+                loss = self.loss((t.to(self.device) for t in batch))
                 loss.backward() # type: ignore
                 self.optimizer.step()
 
