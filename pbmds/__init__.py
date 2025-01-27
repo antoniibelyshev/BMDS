@@ -1,3 +1,3 @@
-from .pbmds import PBMDS as PBMDS
-from .trainer import PBMDSTrainer as PBMDSTrainer
-from .data import PBMDSDataset as PBMDSDataset
+from .vbe import VBE as VBE
+from .trainer import VBETrainer as VBETrainer
+from .data import VBEDataset as VBEDataset

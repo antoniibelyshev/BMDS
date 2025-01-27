@@ -1,8 +1,6 @@
-from utils import compute_pw_dmat, compute_pw_dmat_vector_data, compute_pw_im_distance
-
 import torch
 from torch import Tensor
-from torch.utils.data import TensorDataset, Subset
+from torch.utils.data import Subset
 from torch_geometric.datasets import TUDataset # type: ignore
 from torch_geometric.utils import to_networkx # type: ignore
 from torchvision.datasets import MNIST # type: ignore
@@ -10,20 +8,42 @@ from torchvision.transforms import ToTensor # type: ignore
 import numpy as np
 import networkx as nx
 from netrd.distance import IpsenMikhailov # type: ignore
-from typing import Callable
+from typing import TypeVar, Callable
+import os
+from itertools import combinations
+from tqdm import tqdm
 
 
-def compute_im_dist(g1: nx.Graph, g2: nx.Graph) -> float:
-    return IpsenMikhailov()(g1, g2)
+T = TypeVar('T')
+
+
+def compute_pw_dmat(data: list[T], compute_dist: Callable[[T, T], float]) -> list[list[float]]:
+    n = len(data)
+    pw_dmat = [[0.0] * n for _ in range(n)]
+
+    for i, j in tqdm(combinations(range(n), 2), total=n * (n - 1) // 2):
+        pw_dmat[i][j] = pw_dmat[j][i] = compute_dist(data[i], data[j])
+
+    return pw_dmat
+
+
+def compute_pw_dmat_vector_data(
+        data: Tensor,
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+) -> Tensor:
+    n, m = data.size()
+    data.to(torch.device(device))
+    norm_sqr = data.view(n, 1, m).pow(2).sum(2)
+    pw_dist = norm_sqr - 2 * data @ data.t() + norm_sqr.t()
+    return pw_dist.cpu()
 
 
 def prepare_graph_dataset(
-    dataset_name: str,
-    compute_dist: Callable[[nx.Graph, nx.Graph], float] = compute_im_dist,
+        dataset_name: str,
+        compute_dist: Callable[[nx.Graph, nx.Graph], float] = IpsenMikhailov(),
 ) -> None: 
     dataset = TUDataset(root='tmp_data', name=dataset_name)
-    data = [to_networkx(data_point) for data_point in dataset]
-    # pw_dmat = np.array(compute_pw_im_distance(data))
+    data = [to_networkx(data_point) for data_point in dataset] # type: ignore
     pw_dmat = np.array(compute_pw_dmat(data, compute_dist))
     pw_dmat /= pw_dmat.max()
     labels = dataset.y
@@ -37,7 +57,7 @@ def prepare_vector_dataset(dataset_name: str, data: Tensor, labels: Tensor) -> N
 
 
 def prepare_mnist_dataset(n_samples: int = 10000) -> None:
-    mnist_dataset: TensorDataset = Subset(
+    mnist_dataset = Subset(
         MNIST('tmp_data', train=True, download=True, transform=ToTensor()),
         range(n_samples)
     ) # type: ignore
@@ -47,6 +67,8 @@ def prepare_mnist_dataset(n_samples: int = 10000) -> None:
 
 
 if __name__ == "__main__":
+    if not os.path.exists("data"):
+        os.makedirs("data")
+
     prepare_graph_dataset("PROTEINS")
-    prepare_graph_dataset("IMDB-BINARY")
     prepare_mnist_dataset()
