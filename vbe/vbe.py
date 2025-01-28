@@ -38,7 +38,7 @@ class SqueezingLinear(nn.Module):
         return linear(x, self.weight[self.relevant_dims()])        
 
     def equivalent_dropout_rate(self) -> Tensor:
-        alpha = safe_div(self.weight_std_sqr, self.weight.square())
+        alpha = safe_div(self.weight_std_sqr, self.weight.square()).detach().cpu()
         return alpha / (1 + alpha)
 
     def relevant_dims(self) -> Tensor:
