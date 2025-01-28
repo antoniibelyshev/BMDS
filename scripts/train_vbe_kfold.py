@@ -3,6 +3,9 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
+from typing import Any
+from dotenv import load_dotenv
+import os
 
 from vbe import VBE, VBETrainer, VBEDataset
 
@@ -11,9 +14,11 @@ def train_vbe(
     train_dmat_sqr: Tensor,
     dataset_name: str,
     *,
-    lr: float = 4e-4,
+    lr: float = 1e-3,
     epochs: int = 100,
 ) -> VBE:
+    load_dotenv()
+
     torch.manual_seed(0)
     dataset = VBEDataset(train_dmat_sqr)
     dataloader = DataLoader(dataset, batch_size=train_dmat_sqr.shape[0], shuffle=True, drop_last=True)
@@ -26,11 +31,13 @@ def train_vbe(
         optimizer,
         scheduler,
     )
-    trainer.train(dataloader, epochs=epochs, name=f"{dataset_name}_vbe")
+    trainer.train(dataloader, epochs=epochs, name=f"{dataset_name}_vbe", entity = os.environ["WANDB_ENTITY"])
     return trainer.ema_model
 
 
-def main(dataset_name: str) -> None:
+def train_vbe_kfold(dataset_name: str, **kwargs: Any) -> None:
+    if not os.path.exists("tmp"):
+        os.makedirs("tmp")
     data_file = np.load(f"data/{dataset_name}.npz")
     dmat_sqr = torch.tensor(data_file["pw_dmat"]).float().square()
     labels = torch.tensor(data_file["labels"])
@@ -41,7 +48,7 @@ def main(dataset_name: str) -> None:
         train_dmat_sqr = dmat_sqr[train_idx][:, train_idx].to(device)
         eval_dmat_sqr = dmat_sqr[eval_idx][:, train_idx].to(device)
 
-        vbe = train_vbe(train_dmat_sqr, dataset_name)
+        vbe = train_vbe(train_dmat_sqr, dataset_name, **kwargs)
         x_train = vbe.embedding(train_dmat_sqr)
         x_eval = vbe.embedding(eval_dmat_sqr)
 
@@ -62,4 +69,4 @@ def main(dataset_name: str) -> None:
 
 
 if __name__ == "__main__":
-    main("PROTEINS")
+    train_vbe_kfold("PROTEINS")

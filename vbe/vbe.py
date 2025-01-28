@@ -1,11 +1,11 @@
 import torch
 from torch import nn, Tensor
 from torch.nn.functional import linear
-from .safe_operations import safe_log, safe_sqrt
+from .safe_operations import safe_log, safe_sqrt, safe_div
 
 
 class SqueezingLinear(nn.Module):
-    def __init__(self, in_features: int, out_features: int, eps: float = 1e-2) -> None:
+    def __init__(self, in_features: int, out_features: int, eps: float = 5e-2) -> None:
         super().__init__() # type: ignore
 
         self.in_features = in_features
@@ -20,7 +20,7 @@ class SqueezingLinear(nn.Module):
     def init(self) -> None:
         nn.init.kaiming_uniform_(self.weight, a=2.23)
         with torch.no_grad():
-            self.log_weight_std.copy_(self.weight.square().log() / 2)
+            self.log_weight_std.copy_(0.5 * self.weight.square().log())
 
     def forward(self, x: Tensor) -> Tensor:
         if self.training:
@@ -38,7 +38,7 @@ class SqueezingLinear(nn.Module):
         return linear(x, self.weight[self.relevant_dims()])        
 
     def equivalent_dropout_rate(self) -> Tensor:
-        alpha = self.weight_std_sqr / self.weight.square()
+        alpha = safe_div(self.weight_std_sqr, self.weight.square())
         return alpha / (1 + alpha)
 
     def relevant_dims(self) -> Tensor:
@@ -94,7 +94,7 @@ class VBE(nn.Module):
         return self.squeezing_layer.squeeze(self.encoder(x)).detach().cpu()
 
     def regularization(self) -> Tensor:
-        return 2 * self.squeezing_layer.kl() / self.n / (self.n - 1)
+        return 2 * self.squeezing_layer.kl() / (self.n * (self.n - 1))
 
     def relevant_dims(self) -> Tensor:
         return self.squeezing_layer.relevant_dims()
