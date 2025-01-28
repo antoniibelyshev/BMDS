@@ -90,7 +90,7 @@ class VBE(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         return self.decoder(self.squeezing_layer(self.encoder(x)))
 
-    def embedding(self, x: Tensor) -> Tensor:
+    def embed(self, x: Tensor) -> Tensor:
         return self.squeezing_layer.squeeze(self.encoder(x)).detach().cpu()
 
     def regularization(self) -> Tensor:
