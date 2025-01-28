@@ -7,6 +7,7 @@ from torch.optim import Optimizer, lr_scheduler
 from torch.utils.data import DataLoader
 import wandb
 from copy import deepcopy
+from tqdm import trange
 
 
 def update_ema(model: nn.Module, ema_model: nn.Module, decay: float):
@@ -39,7 +40,6 @@ class VBETrainer:
         x1, x2, s = batch
 
         dist_sqr = (self.model(x1) - self.model(x2)).square().sum(1)
-        # dist_sqr = relu(dist_sqr - 1e-8) + 1e-8 # for numerical stability
         ratio = s / dist_sqr
         loss = (ratio - safe_log(ratio) - 1).mean()
         reg = self.model.regularization()
@@ -51,12 +51,12 @@ class VBETrainer:
             dataloader: DataLoader[tuple[Tensor, ...]],
             epochs: int = 100,
             name: str = 'default',
-            project: str = 'VBE',
-            entity: str = "ai-prentice",
+            project: str | None = 'VBE',
+            entity: str | None = None,
     ) -> None:
         run = wandb.init(name=name, project=project, entity=entity)
 
-        for epoch in range(1, epochs + 1):
+        for epoch in trange(1, epochs + 1):
             self.model.train()
 
             for batch in dataloader:
@@ -82,9 +82,9 @@ class VBETrainer:
 
     def eval(self) -> None:
         wandb.log({"relevant dims count": self.ema_model.relevant_dims().float().sum()})
-        relevance_score = sorted(self.ema_model.relevance_score())
-        for i in range(0, len(relevance_score), 10):
-            wandb.log({f"relevance score {i}": relevance_score[i]})
+        relevance_score = sorted(self.ema_model.relevance_score(), reverse=True)
+        for i in range(20):
+            wandb.log({f"relevance score {i + 1}": relevance_score[i]})
 
     def update_ema(self):
         update_ema(self.model, self.ema_model, self.ema_decay)

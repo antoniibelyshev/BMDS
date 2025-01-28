@@ -19,6 +19,7 @@ dependencies = [
     "netrd (>=0.3.0,<0.4.0)",
     "torchvision (>=0.20.1,<0.21.0)",
     "numpy (>=2.2.1,<3.0.0)",
+    "python-dotenv (>=1.0.1,<2.0.0)",
 ]
 
 

@@ -11,7 +11,7 @@ def train_vbe(
     train_dmat_sqr: Tensor,
     dataset_name: str,
     *,
-    lr: float = 1e-3,
+    lr: float = 4e-4,
     epochs: int = 100,
 ) -> VBE:
     torch.manual_seed(0)
@@ -42,8 +42,8 @@ def main(dataset_name: str) -> None:
         eval_dmat_sqr = dmat_sqr[eval_idx][:, train_idx].to(device)
 
         vbe = train_vbe(train_dmat_sqr, dataset_name)
-        x_train = vbe.embed(train_dmat_sqr)
-        x_eval = vbe.embed(eval_dmat_sqr)
+        x_train = vbe.embedding(train_dmat_sqr)
+        x_eval = vbe.embedding(eval_dmat_sqr)
 
         y_train = labels[train_idx]
         y_eval = labels[eval_idx]
