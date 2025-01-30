@@ -6,7 +6,7 @@ from torch_geometric.utils import to_networkx # type: ignore
 from torchvision.datasets import MNIST # type: ignore
 from torchvision.transforms import ToTensor # type: ignore
 import numpy as np
-import networkx as nx
+import networkx as nx # type: ignore
 from netrd.distance import IpsenMikhailov # type: ignore
 from typing import TypeVar, Callable
 import os
@@ -61,8 +61,8 @@ def prepare_mnist_dataset(n_samples: int = 10000) -> None:
         MNIST('tmp_data', train=True, download=True, transform=ToTensor()),
         range(n_samples)
     ) # type: ignore
-    mnist_data = torch.stack([data.flatten() for data, _ in mnist_dataset], 0)
-    labels = torch.tensor([label for _, label in mnist_dataset])
+    mnist_data = torch.stack([data.flatten() for data, _ in mnist_dataset], 0) # type: ignore
+    labels = torch.tensor([label for _, label in mnist_dataset]) # type: ignore
     prepare_vector_dataset("MNIST", mnist_data, labels)
 
 

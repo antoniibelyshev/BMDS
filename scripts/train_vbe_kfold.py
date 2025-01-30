@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch import Tensor, from_numpy
 from torch.utils.data import DataLoader
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold # type: ignore
 from dotenv import load_dotenv
 import os
 
