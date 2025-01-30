@@ -53,7 +53,7 @@ def prepare_graph_dataset(
 def prepare_vector_dataset(dataset_name: str, data: Tensor, labels: Tensor) -> None:
     pw_dmat = compute_pw_dmat_vector_data(data)
     pw_dmat /= pw_dmat.max()
-    np.savez(f"data/{dataset_name}.npz", pw_dmat=pw_dmat, labels=labels)
+    np.savez(f"data/{dataset_name}.npz", data=data, pw_dmat=pw_dmat, labels=labels)
 
 
 def prepare_mnist_dataset(n_samples: int = 10000) -> None:

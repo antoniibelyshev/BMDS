@@ -1,8 +1,10 @@
 import numpy as np
 import torch
-from torch import Tensor
+from torch import Tensor, from_numpy
 from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
+from dotenv import load_dotenv
+import os
 
 from vbe import VBE, VBETrainer, VBEDataset
 
@@ -13,10 +15,12 @@ def train_vbe(
     *,
     lr: float = 1e-3,
     epochs: int = 100,
+    batch_size: int | None = None,
 ) -> VBE:
+    load_dotenv()
     torch.manual_seed(0)
     dataset = VBEDataset(train_dmat_sqr)
-    dataloader = DataLoader(dataset, batch_size=train_dmat_sqr.shape[0], shuffle=True, drop_last=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size or train_dmat_sqr.shape[0], shuffle=True, drop_last=True)
     vbe = VBE(train_dmat_sqr.shape[0], train_dmat_sqr.shape[0])
     optimizer = torch.optim.Adam(vbe.parameters(), lr=lr)
     scheduler = None
@@ -26,14 +30,14 @@ def train_vbe(
         optimizer,
         scheduler,
     )
-    trainer.train(dataloader, epochs=epochs, name=f"{dataset_name}_vbe")
+    trainer.train(dataloader, epochs=epochs, name=f"{dataset_name}_vbe", entity=os.getenv("WANDB_ENTITY", None))
     return trainer.ema_model
 
 
 def main(dataset_name: str) -> None:
     data_file = np.load(f"data/{dataset_name}.npz")
-    dmat_sqr = torch.tensor(data_file["pw_dmat"]).float().square()
-    labels = torch.tensor(data_file["labels"])
+    dmat_sqr = from_numpy(data_file["pw_dmat"]).float().square()
+    labels = from_numpy(data_file["labels"])
 
     kfold_validation = KFold(n_splits=10, shuffle=True, random_state=0)
     for i, (train_idx, eval_idx) in enumerate(kfold_validation.split(np.arange(len(dmat_sqr))), 1): # type: ignore

@@ -1,5 +1,5 @@
 [project]
-name = "pbmds"
+name = "vbe"
 version = "0.1.0"
 description = ""
 authors = [
@@ -7,9 +7,7 @@ authors = [
 ]
 readme = "README.md"
 packages = [
-    { include = "utils" },
-    { include = "pbmds" },
-    { include = "classifier" },
+    { include = "vbe" },
 ]
 requires-python = ">=3.10"
 dependencies = [

@@ -7,7 +7,7 @@ from torch.optim import Optimizer, lr_scheduler
 from torch.utils.data import DataLoader
 import wandb
 from copy import deepcopy
-from tqdm import trange
+from tqdm import tqdm
 
 
 def update_ema(model: nn.Module, ema_model: nn.Module, decay: float):
@@ -56,25 +56,28 @@ class VBETrainer:
     ) -> None:
         run = wandb.init(name=name, project=project, entity=entity)
 
-        for epoch in trange(1, epochs + 1):
-            self.model.train()
+        with tqdm(total=epochs * len(dataloader)) as pbar:
+            for epoch in range(1, epochs + 1):
+                self.model.train()
 
-            for batch in dataloader:
-                self.optimizer.zero_grad()
-                loss = self.loss([t.to(self.device) for t in batch])
-                loss.backward()  # type: ignore
-                self.optimizer.step()
+                for batch in dataloader:
+                    self.optimizer.zero_grad()
+                    loss = self.loss([t.to(self.device) for t in batch])
+                    loss.backward()  # type: ignore
+                    self.optimizer.step()
 
-                self.update_ema()
+                    self.update_ema()
 
-                wandb.log({"loss": loss.item()})
+                    wandb.log({"loss": loss.item()})
 
-            self.eval()
+                    pbar.update()
 
-            wandb.log({'epoch': epoch})
+                    self.eval()
 
-            if self.scheduler:
-                self.scheduler.step()
+                wandb.log({'epoch': epoch})
+
+                if self.scheduler:
+                    self.scheduler.step()
 
         run.finish()  # type: ignore
 

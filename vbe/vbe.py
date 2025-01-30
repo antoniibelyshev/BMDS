@@ -20,7 +20,7 @@ class SqueezingLinear(nn.Module):
     def init(self) -> None:
         nn.init.kaiming_uniform_(self.weight, a=2.23)
         with torch.no_grad():
-            self.log_weight_std.copy_(0.5 * self.weight.square().log())
+            self.log_weight_std.copy_(0.5 * self.weight.square().log() - 6)
 
     def forward(self, x: Tensor) -> Tensor:
         if self.training:
